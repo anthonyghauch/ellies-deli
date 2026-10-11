@@ -23,13 +23,19 @@ const CONFIG = {
   MAX_QTY_PER_ITEM: 5,               // more than 5 of the same item = order in person
   READY_EMAIL: true,                 // email the customer when you tick Ready
   READY_MESSAGE: 'Come down to the basement to pick it up.',
+  // Hungry Man deal: every 2 sandwiches + 1 drink takes $1 off, and it stacks.
+  // Admins switch it on/off from the Menu tab of the kitchen page.
+  DEAL_NAME: 'Hungry Man',
+  DEAL_SANDWICHES: 2,
+  DEAL_DRINKS: 1,
+  DEAL_DISCOUNT: 1,
 };
 
 const ORDER_HEADERS = ['Order ID', 'Placed at', 'Night', 'Name', 'Room', 'Email', 'Items',
-  'Sandwiches', 'Total', 'Payment', 'Notes', 'Paid', 'Ready', 'Ready email sent'];
+  'Sandwiches', 'Total', 'Payment', 'Notes', 'Paid', 'Ready', 'Ready email sent', 'Discount'];
 const ITEM_HEADERS = ['Order ID', 'Night', 'Item', 'Category', 'Qty', 'Unit price', 'Line total'];
 const MENU_HEADERS = ['Item', 'Category', 'Price', 'Available', 'Description'];
-const COL = { EMAIL: 6, PAID: 12, READY: 13, NOTIFIED: 14 };
+const COL = { EMAIL: 6, PAID: 12, READY: 13, NOTIFIED: 14, DISCOUNT: 15 };
 const MENU_COL = { AVAILABLE: 4 };
 
 const SEED_MENU = [
@@ -58,6 +64,7 @@ const SEED_MENU = [
 const API = {
   getMenu, placeOrder, getOrderStatus,
   checkPin, getOrders, setOrderFlag, setOpen, getSheetUrl, getAdminMenu, setItemAvailable,
+  getDeal, setDeal,
 };
 
 /** The website sends POST {fn, args} as plain text (no CORS preflight) and gets JSON back. */
@@ -81,6 +88,7 @@ function doGet() {
 /** Run this once from the editor to create the Drive folder + spreadsheet. */
 function setup() {
   const ss = getSpreadsheet_();
+  upgradeSheet_(ss);
   Logger.log('Spreadsheet ready: ' + ss.getUrl());
   if (!adminPin_()) Logger.log('Now set ADMIN_PIN in Project Settings → Script properties.');
   return ss.getUrl();
@@ -109,6 +117,7 @@ function getMenu() {
     paymentMethods: CONFIG.PAYMENT_METHODS,
     paymentNote: CONFIG.PAYMENT_NOTE,
     maxQty: CONFIG.MAX_QTY_PER_ITEM,
+    deal: dealInfo_(),
   };
 }
 
@@ -141,9 +150,13 @@ function placeOrder(order) {
   if (soldOut.length) throw new Error('Sorry, ' + soldOut.join(' and ') + ' just sold out. Please update your order.');
   if (!lines.length) throw new Error('Your order is empty.');
 
-  const total = round2_(lines.reduce((s, l) => s + l.qty * l.price, 0));
+  const subtotal = round2_(lines.reduce((s, l) => s + l.qty * l.price, 0));
   const sandwiches = lines.filter(l => isSandwich_(l.category)).reduce((s, l) => s + l.qty, 0);
-  const itemsText = lines.map(l => l.qty + '× ' + l.name).join(', ');
+  const drinks = lines.filter(l => isDrink_(l.category)).reduce((s, l) => s + l.qty, 0);
+  const deal = dealFor_(sandwiches, drinks);
+  const total = round2_(subtotal - deal.discount);
+  let itemsText = lines.map(l => l.qty + '× ' + l.name).join(', ');
+  if (deal.count) itemsText += ' · ' + CONFIG.DEAL_NAME + ' ×' + deal.count + ' (−' + money_(deal.discount) + ')';
 
   // The website retries when Google drops a reply; the same requestId must not create a second order.
   const requestId = clean_(order.requestId, 64);
@@ -156,6 +169,7 @@ function placeOrder(order) {
     if (already) return JSON.parse(already);
 
     const ss = getSpreadsheet_();
+    upgradeSheet_(ss);
     const now = new Date();
     const night = serviceNight_(now);
     const nightKey = fmt_(night, 'yyyyMMdd');
@@ -177,7 +191,7 @@ function placeOrder(order) {
     const id = nightKey + '-' + number;
     orders.getRange(row, 1, 1, ORDER_HEADERS.length).setValues([[
       id, now, night, safe_(name), safe_(room), email, itemsText,
-      sandwiches, total, payment, safe_(notes), false, false, '',
+      sandwiches, total, payment, safe_(notes), false, false, '', deal.discount,
     ]]);
     orders.getRange(row, COL.PAID, 1, 2).insertCheckboxes();
 
@@ -186,8 +200,8 @@ function placeOrder(order) {
       lines.map(l => [id, night, l.name, l.category, l.qty, l.price, round2_(l.qty * l.price)]));
 
     SpreadsheetApp.flush();
-    const result = { id: id, number: number, total: total, items: itemsText, payment: payment,
-      email: email, paymentNote: CONFIG.PAYMENT_NOTE };
+    const result = { id: id, number: number, total: total, subtotal: subtotal, discount: deal.discount,
+      deals: deal.count, items: itemsText, payment: payment, email: email, paymentNote: CONFIG.PAYMENT_NOTE };
     if (requestId) cache.put('req_' + requestId, JSON.stringify(result), 21600);
     return result;
   } finally {
@@ -235,8 +249,9 @@ function getOrders(pin, night) {
       items: String(r[6]), sandwiches: Number(r[7]) || 0, total: Number(r[8]) || 0,
       payment: String(r[9]), notes: String(r[10]),
       paid: r[11] === true, ready: r[12] === true, notified: !!r[13],
+      discount: Number(r[14]) || 0,
     }));
-  return { night: target, open: isOpen_(), orders: orders };
+  return { night: target, open: isOpen_(), dealOn: isDealOn_(), orders: orders };
 }
 
 /**
@@ -296,6 +311,18 @@ function setItemAvailable(pin, name, available) {
   if (!cell) throw new Error('Menu item not found: ' + name);
   sh.getRange(cell.getRow(), MENU_COL.AVAILABLE).setValue(available === true);
   return available === true;
+}
+
+function getDeal(pin) {
+  checkPin_(pin);
+  return dealInfo_();
+}
+
+/** Turn the Hungry Man deal on or off. */
+function setDeal(pin, on) {
+  checkPin_(pin);
+  PropertiesService.getScriptProperties().setProperty('DEAL_ON', on ? 'true' : 'false');
+  return dealInfo_();
 }
 
 /* ------------------------------------------------------------------ email */
@@ -369,6 +396,7 @@ function buildSheets_(ss) {
   orders.getRange('C:C').setNumberFormat('ddd m/d/yyyy');
   orders.getRange('I:I').setNumberFormat('$0.00');
   orders.getRange('N:N').setNumberFormat('h:mm am/pm');
+  orders.getRange('O:O').setNumberFormat('$0.00');
   orders.setColumnWidth(6, 200);
   orders.setColumnWidth(7, 320);
   orders.setColumnWidth(11, 220);
@@ -405,6 +433,7 @@ function buildDashboard_(dash) {
     ['Nights open', '=COUNTUNIQUE(Orders!C2:C)', '0'],
     ['Avg sandwiches / night', '=IFERROR(B7/B9,0)', '0.0'],
     ['Best seller', '=IFERROR(INDEX(I4:I,1),"—")', '@'],
+    ['Hungry Man discounts', '=SUM(Orders!O2:O)', '$0.00'],
   ];
   dash.getRange('A2').setValue('Totals').setFontWeight('bold');
   kpis.forEach((k, i) => {
@@ -514,6 +543,45 @@ function serviceNight_(when) {
 
 function isSandwich_(category) {
   return /^sandwich/i.test(String(category));
+}
+
+function isDrink_(category) {
+  return /^drink/i.test(String(category));
+}
+
+/** The deal is on unless an admin switched it off. */
+function isDealOn_() {
+  return PropertiesService.getScriptProperties().getProperty('DEAL_ON') !== 'false';
+}
+
+function dealInfo_() {
+  return { on: isDealOn_(), name: CONFIG.DEAL_NAME, sandwiches: CONFIG.DEAL_SANDWICHES,
+    drinks: CONFIG.DEAL_DRINKS, discount: CONFIG.DEAL_DISCOUNT };
+}
+
+/** How many deals an order earns: every 2 sandwiches + 1 drink, stacking. */
+function dealFor_(sandwiches, drinks) {
+  if (!isDealOn_()) return { count: 0, discount: 0 };
+  const count = Math.max(0, Math.min(Math.floor(sandwiches / CONFIG.DEAL_SANDWICHES), Math.floor(drinks / CONFIG.DEAL_DRINKS)));
+  return { count: count, discount: round2_(count * CONFIG.DEAL_DISCOUNT) };
+}
+
+/** One-time upgrade for sheets made before the deal existed: Discount column + dashboard total. */
+function upgradeSheet_(ss) {
+  const orders = ss.getSheetByName('Orders');
+  if (orders.getRange(1, COL.DISCOUNT).getValue() !== '') return;
+  writeHeader_(orders, ORDER_HEADERS);
+  orders.getRange('O:O').setNumberFormat('$0.00');
+  const dash = ss.getSheetByName('Dashboard');
+  if (dash && dash.getRange('A12').getValue() === '') {
+    dash.getRange('A12').setValue('Hungry Man discounts');
+    dash.getRange('B12').setFormula('=SUM(Orders!O2:O)').setNumberFormat('$0.00').setFontWeight('bold');
+    dash.getRange(12, 1, 1, 2).setBackground('#e8f4ef');
+  }
+}
+
+function money_(n) {
+  return '$' + Number(n).toFixed(2);
 }
 
 function toDay_(v) {

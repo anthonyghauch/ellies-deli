@@ -86,6 +86,14 @@
   .avail input:focus-visible + .switch { outline: 2px solid var(--green); outline-offset: 2px; }
   .avail .lbl { width: 66px; color: var(--green); }
   .mi.off .avail .lbl { color: var(--danger); }
+  .deal-card {
+    display: flex; align-items: center; gap: 14px; margin: 14px 0 6px; padding: 12px 14px;
+    background: #fdf4e8; border: 2px solid var(--tan); border-radius: 12px;
+  }
+  .deal-card .txt { flex: 1; }
+  .deal-card .t { font: 700 17px/1.2 var(--display); letter-spacing: .04em; color: var(--green-dark); }
+  .deal-card .d { color: var(--muted); font-size: 13px; }
+  .deal-card.off .t { color: var(--muted); }
 
   .empty, .msg { text-align: center; color: var(--muted); padding: 48px 16px; }
   .error-bar { background: #fdecea; color: var(--danger); padding: 6px 16px; font-weight: 500; }
@@ -195,6 +203,16 @@
   </div>
 
   <div class="menu-view" id="menuView" hidden>
+    <div class="deal-card" id="dealCard" hidden>
+      <div class="txt">
+        <div class="t" id="dealName">Hungry Man deal</div>
+        <div class="d" id="dealDesc"></div>
+      </div>
+      <label class="avail">
+        <input type="checkbox" id="dealToggle" aria-label="Hungry Man deal on">
+        <span class="switch"></span><span class="lbl" id="dealLbl">On</span>
+      </label>
+    </div>
     <p class="hint">Ran out of something? Switch it off and customers see it as <b>Sold out</b> right away.</p>
     <div id="menuList"><div class="msg">Loading…</div></div>
   </div>
@@ -222,6 +240,7 @@ window.DEMO = (() => {
       notes: notes[i % notes.length], paid: i < 3, ready: i < 5, notified: i < 5 };
   });
   let open = true;
+  const deal = { on: true, name: 'Hungry Man', sandwiches: 2, drinks: 1, discount: 1 };
   return {
     checkPin: async (p) => { if (p !== '1234') throw new Error('Wrong PIN (demo PIN is 1234)'); return true; },
     getOrders: async (pin, night) => ({ night: night || '2026-10-11', open, orders: JSON.parse(JSON.stringify(orders)) }),
@@ -237,6 +256,8 @@ window.DEMO = (() => {
     getAdminMenu: async () => menu.map(([name, price]) => ({ name, price, category: 'Sandwiches', available: avail[name] }))
       .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] }))),
     setItemAvailable: async (pin, name, v) => (avail[name] = v),
+    getDeal: async () => ({ ...deal }),
+    setDeal: async (pin, on) => { deal.on = on; return { ...deal }; },
   };
 })();
 
@@ -416,13 +437,40 @@ $('views').addEventListener('click', (e) => {
 
 async function loadMenu() {
   try {
-    S.menu = await call('getAdminMenu', S.pin);
+    const [menu, deal] = await Promise.all([call('getAdminMenu', S.pin), call('getDeal', S.pin).catch(() => null)]);
+    S.menu = menu;
     renderMenu();
+    renderDeal(deal);
     $('errBar').hidden = true;
   } catch (err) {
     showError("Couldn't load the menu: " + err.message);
   }
 }
+
+/* ---- Hungry Man deal on/off ---- */
+function renderDeal(deal) {
+  $('dealCard').hidden = !deal;
+  if (!deal) return;
+  S.deal = deal;
+  $('dealName').textContent = deal.name + ' deal';
+  $('dealDesc').textContent = `Every ${deal.sandwiches} sandwiches + ${deal.drinks === 1 ? '1 drink' : deal.drinks + ' drinks'} = ` +
+    `${money(deal.discount).replace('.00', '')} off. Stacks.`;
+  $('dealToggle').checked = deal.on;
+  $('dealLbl').textContent = deal.on ? 'On' : 'Off';
+  $('dealCard').classList.toggle('off', !deal.on);
+}
+
+$('dealToggle').addEventListener('change', async (e) => {
+  const want = e.target.checked;
+  renderDeal({ ...S.deal, on: want });
+  try {
+    renderDeal(await call('setDeal', S.pin, want));
+    toast(want ? `${S.deal.name} deal is ON` : `${S.deal.name} deal is OFF`);
+  } catch (err) {
+    renderDeal({ ...S.deal, on: !want });
+    showError("Couldn't change the deal: " + err.message);
+  }
+});
 
 function renderMenu() {
   const cats = [];

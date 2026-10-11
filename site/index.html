@@ -89,6 +89,18 @@
   .ghost { margin-top: 24px; background: none; border: 1.5px solid var(--green); color: var(--green); border-radius: 12px; height: 46px; padding: 0 22px; font-weight: 700; cursor: pointer; }
   .pay { background: var(--green-soft); border-radius: 12px; padding: 14px; margin: 18px auto 0; max-width: 380px; color: var(--ink); }
   .rules { background: var(--green-soft); border-radius: var(--radius); padding: 14px 16px; margin-top: 20px; font-size: 14px; color: var(--ink); }
+  .deal {
+    display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 12px 16px;
+    background: #fdf4e8; border: 2px solid var(--tan); border-radius: var(--radius); color: var(--ink); font-size: 14px;
+  }
+  .deal-badge {
+    flex: none; width: 58px; height: 58px; border-radius: 50%; background: var(--green); color: var(--tan);
+    display: grid; place-items: center; text-align: center; font: 700 15px/1 var(--display);
+  }
+  .deal-badge small { display: block; font-size: 10px; letter-spacing: .08em; margin-top: 2px; }
+  .deal-title { font: 700 17px/1.2 var(--display); letter-spacing: .04em; color: var(--green-dark); }
+  .line.deal-line { color: var(--green); font-weight: 700; }
+  .deal-hint { margin-top: 8px; padding: 7px 10px; border-radius: 8px; background: #fdf4e8; color: #7a4a12; font-size: 13px; font-weight: 500; }
   .warn { font-size: 13px; max-width: 380px; margin: 12px auto 0; }
   .c-items { margin-top: 14px; color: var(--ink); }
   .headline { border-radius: 16px; padding: 14px 16px; margin: 6px auto 0; max-width: 420px; transition: background .3s; }
@@ -138,11 +150,16 @@
       Pay by <strong>card or cash</strong> in the basement when you pick up.
       <span id="maxNote"></span>
     </div>
+    <div class="deal" id="deal" hidden>
+      <div class="deal-badge" id="dealBadge"></div>
+      <div><div class="deal-title" id="dealTitle"></div><div id="dealText"></div></div>
+    </div>
     <div id="menu"></div>
 
     <form class="card" id="checkout" novalidate>
       <h2>Your order</h2>
       <div id="summary"></div>
+      <div class="deal-hint" id="dealHint" hidden></div>
 
       <div class="row2">
         <div>
@@ -197,6 +214,7 @@ window.DEMO = {
   getMenu: async () => ({
     open: true, paymentMethods: ['Card', 'Cash'], maxQty: 5,
     paymentNote: 'Pay by card or cash when you pick up in the basement.',
+    deal: { on: true, name: 'Hungry Man', sandwiches: 2, drinks: 1, discount: 1 },
     items: [
       ['The Classic', 1, 'Colby Jack'], ['The Porky', 2, 'Colby Jack, Bacon Bits'],
       ['The Piggy', 2, 'Colby Jack, Pepperoni'], ['The Hammy', 2, 'Colby Jack, Ham'],
@@ -210,16 +228,18 @@ window.DEMO = {
         .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true }))),
   }),
   placeOrder: async (o) => {
-    const total = o.items.reduce((s, it) => s + it.qty * state.prices[it.name], 0);
+    const t = cartTotals(o.items.map(i => ({ name: i.name, qty: i.qty, price: state.prices[i.name] })));
     DEMO.readyAt = Date.now() + 6000;  // demo: order turns "ready" after 6 seconds
-    return { id: '20261011-7', number: 7, total, items: o.items.map(i => i.qty + '× ' + i.name).join(', '),
-      payment: o.payment, email: o.email, paymentNote: 'Pay by card or cash when you pick up in the basement.' };
+    let items = o.items.map(i => i.qty + '× ' + i.name).join(', ');
+    if (t.deals) items += ' · Hungry Man ×' + t.deals + ' (−' + money(t.discount) + ')';
+    return { id: '20261011-7', number: 7, total: t.total, subtotal: t.subtotal, discount: t.discount, deals: t.deals,
+      items, payment: o.payment, email: o.email, paymentNote: 'Pay by card or cash when you pick up in the basement.' };
   },
   getOrderStatus: async () => ({ ready: Date.now() > (DEMO.readyAt || 0), paid: false }),
 };
 
 /* ---- state ---- */
-const state = { items: [], prices: {}, available: {}, cart: {}, maxQty: 5, closed: false, active: null, pollTimer: null, audio: null };
+const state = { items: [], prices: {}, available: {}, cats: {}, deal: null, cart: {}, maxQty: 5, closed: false, active: null, pollTimer: null, audio: null };
 const store = storage('localStorage');
 const POLL_MS = 10000;
 const TRACK_HOURS = 10;
@@ -239,6 +259,7 @@ async function init() {
 
   state.paymentNote = data.paymentNote;
   state.maxQty = data.maxQty || 5;
+  state.deal = data.deal || null;
   applyMenu(data.items);
   $('maxNote').textContent = `Want more than ${state.maxQty} of the same thing? Please order in person.`;
   $('payments').innerHTML = data.paymentMethods.map((m, i) =>
@@ -252,15 +273,60 @@ async function init() {
 /** Take a fresh menu from the server; drop anything that sold out from the cart. */
 function applyMenu(items) {
   state.items = items;
-  state.prices = {}; state.available = {};
-  items.forEach(i => { state.prices[i.name] = i.price; state.available[i.name] = i.available !== false; });
+  state.prices = {}; state.available = {}; state.cats = {};
+  items.forEach(i => { state.prices[i.name] = i.price; state.available[i.name] = i.available !== false; state.cats[i.name] = i.category; });
   Object.keys(state.cart).forEach(n => { if (!state.available[n]) delete state.cart[n]; });
+  renderDeal();
   renderMenu();
   renderCart();
 }
 
 async function refreshMenu() {
-  try { applyMenu((await call('getMenu')).items); } catch (e) { /* keep what we have */ }
+  try {
+    const data = await call('getMenu');
+    state.deal = data.deal || null;
+    applyMenu(data.items);
+  } catch (e) { /* keep what we have */ }
+}
+
+/* ---- Hungry Man deal: every 2 sandwiches + 1 drink = $1 off, stacking (the server has the final say) ---- */
+function dealOn() { return !!(state.deal && state.deal.on); }
+
+function renderDeal() {
+  $('deal').hidden = !dealOn();
+  if (!dealOn()) return;
+  const d = state.deal;
+  $('dealBadge').innerHTML = `${esc(money(d.discount).replace('.00', ''))}<small>OFF</small>`;
+  $('dealTitle').textContent = d.name + ' deal';
+  $('dealText').innerHTML = `Every <b>${d.sandwiches} sandwiches + ${d.drinks === 1 ? 'a drink' : d.drinks + ' drinks'}</b> = ` +
+    `<b>${esc(money(d.discount).replace('.00', ''))} off</b>. It stacks: ${d.sandwiches * 2} sandwiches + ${d.drinks * 2} drinks saves ${esc(money(d.discount * 2).replace('.00', ''))}.`;
+}
+
+function cartTotals(lines) {
+  const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const count = (re) => lines.filter(l => re.test(state.cats[l.name] || '')).reduce((s, l) => s + l.qty, 0);
+  const sandwiches = count(/^sandwich/i), drinks = count(/^drink/i);
+  let deals = 0;
+  if (dealOn()) deals = Math.min(Math.floor(sandwiches / state.deal.sandwiches), Math.floor(drinks / state.deal.drinks));
+  const discount = dealOn() ? deals * state.deal.discount : 0;
+  return { subtotal, discount, total: subtotal - discount, deals, sandwiches, drinks };
+}
+
+/** "Add a drink to save $1" style nudge, or '' when the cart is already balanced. */
+function dealHint(t) {
+  if (!dealOn() || !(t.sandwiches + t.drinks)) return '';
+  const d = state.deal;
+  const k = Math.floor(t.sandwiches / d.sandwiches), m = Math.floor(t.drinks / d.drinks);
+  const save = (t.deals ? 'another ' : '') + money(d.discount).replace('.00', '');
+  if (k > m) {
+    const need = d.drinks - (t.drinks % d.drinks);
+    return `Add ${need === 1 ? 'a drink' : need + ' drinks'} to save ${save} with the ${d.name} deal.`;
+  }
+  if (m > k) {
+    const need = d.sandwiches - (t.sandwiches % d.sandwiches);
+    return `Add ${need} ${t.sandwiches % d.sandwiches ? 'more ' : ''}sandwich${need === 1 ? '' : 'es'} to save ${save} with the ${d.name} deal.`;
+  }
+  return '';
 }
 
 function renderMenu() {
@@ -304,13 +370,17 @@ function cartLines() {
 function renderCart() {
   const lines = cartLines();
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const t = cartTotals(lines);
   $('summary').innerHTML = lines.length
     ? lines.map(l => `<div class="line"><span>${l.qty}× ${esc(l.name)}</span><span>${money(l.qty * l.price)}</span></div>`).join('')
-      + `<div class="line total"><span>Total</span><span>${money(total)}</span></div>`
+      + (t.discount ? `<div class="line deal-line"><span>${esc(state.deal.name)} deal ×${t.deals}</span><span>−${money(t.discount)}</span></div>` : '')
+      + `<div class="line total"><span>Total</span><span>${money(t.total)}</span></div>`
     : '<div class="empty">Nothing yet. Tap "Add" on something above.</div>';
+  const hint = dealHint(t);
+  $('dealHint').hidden = !hint;
+  $('dealHint').textContent = hint;
   $('barCount').textContent = count + (count === 1 ? ' item · View order' : ' items · View order');
-  $('barTotal').textContent = money(total);
+  $('barTotal').textContent = money(t.total);
   updateBar();
 }
 
@@ -383,7 +453,7 @@ function showConfirm(o) {
   $('bar').classList.remove('show');
   $('cNum').textContent = '#' + o.number;
   $('cItems').textContent = o.items;
-  $('cTotal').textContent = 'Total: ' + money(o.total) + ' · ' + o.payment;
+  $('cTotal').textContent = 'Total: ' + money(o.total) + ' · ' + o.payment + (o.discount ? ' (you saved ' + money(o.discount) + ')' : '');
   $('cPay').textContent = o.paymentNote;
   setStage(o.stage || 'received', false);
   $('confirm').hidden = false;

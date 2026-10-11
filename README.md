@@ -71,6 +71,7 @@ Tip: if the QR code points at your own domain, you can move the site later witho
   - **Paid**: tick it when they pay at pickup. The stats bar shows Collected and Owed.
   - The **Unpaid** and **To make** filters, search, and the date picker let you look back at past nights.
 - **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names and ingredients are edited in the **Menu** tab of the spreadsheet.
+- **Hungry Man deal** (switch at the top of the Menu tab): every 2 sandwiches + 1 drink takes $1 off, and it stacks (4 sandwiches + 2 drinks = $2 off). Customers see a banner, the discount in their cart, and a nudge like "Add a drink to save $1". The backend calculates the discount, so it can't be faked. It's saved in the **Discount** column of Orders, the order's Items text, and the Dashboard's "Hungry Man discounts" total. Change the rules with the `DEAL_*` settings in `Code.gs`.
 
 ## The spreadsheet (Google Drive → Ellie's Deli → Ellie's Deli — Orders)
 
