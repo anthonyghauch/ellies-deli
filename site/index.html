@@ -205,7 +205,8 @@ window.DEMO = {
       ['The Kitchen Sink', 4, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños'],
       ['The Nutellie', 1, 'Toasted Nutella'], ['The Duke', 2, 'Toasted Nutella, Bacon Bits'],
     ].map(([name, price, description]) => ({ name, price, description, category: 'Sandwiches', available: name !== 'The Duke' }))
-      .concat([['Soda', 1], ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
+      .concat([['Coke', 1], ['Coke Zero', 1], ['Diet Coke', 1], ['Sprite', 1],
+        ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
         .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true }))),
   }),
   placeOrder: async (o) => {
