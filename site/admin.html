@@ -47,7 +47,7 @@
   .list { padding: 0 0 40px; }
   .row, .head {
     display: grid; align-items: center; gap: 10px; padding: 5px 16px;
-    grid-template-columns: 38px 62px minmax(110px, 160px) 70px minmax(0, 1fr) minmax(0, 220px) 62px 50px 42px 56px;
+    grid-template-columns: 38px 62px minmax(110px, 180px) minmax(0, 1fr) minmax(0, 220px) 62px 50px 42px 56px 30px;
   }
   .head { position: sticky; top: var(--top-h, 48px); z-index: 4; background: var(--white); color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--green-line); padding-top: 6px; padding-bottom: 6px; }
   .head .c { text-align: center; }
@@ -62,7 +62,6 @@
   .num { font-weight: 700; color: var(--green); font-size: 15px; }
   .time, .pay { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .room { white-space: nowrap; }
   .items { font-weight: 500; }
   .notes { color: var(--warn); font-size: 13px; }
   .amt { font-weight: 700; text-align: right; white-space: nowrap; }
@@ -97,6 +96,25 @@
 
   .empty, .msg { text-align: center; color: var(--muted); padding: 48px 16px; }
   .error-bar { background: #fdecea; color: var(--danger); padding: 6px 16px; font-weight: 500; }
+  .del {
+    display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px;
+    background: none; color: #9aa9a3; cursor: pointer;
+  }
+  .del:hover, .del:focus-visible { color: var(--danger); background: #fdecea; outline: none; }
+  .del svg { width: 16px; height: 16px; }
+
+  /* "are you sure?" box for deleting an order */
+  .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(16, 38, 31, .45); }
+  .modal .sheet { width: 100%; max-width: 380px; background: var(--white); border-radius: 14px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .modal h3 { margin: 0 0 8px; font: 700 20px/1.2 var(--display); color: var(--ink); }
+  .modal .what { margin: 0 0 10px; color: var(--ink); }
+  .modal .note { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+  .modal .btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal button { height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  .modal .keep { border: 1.5px solid var(--green-line); background: var(--white); color: var(--ink); }
+  .modal .danger { border: 0; background: var(--danger); color: var(--white); }
+  .modal .danger:disabled { opacity: .6; cursor: default; }
+
   .toast {
     position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; transition: .2s;
     background: var(--ink); color: var(--white); padding: 10px 16px; border-radius: 10px; font-weight: 500; z-index: 10;
@@ -126,7 +144,6 @@
       gap: 2px 8px; padding: 8px 16px;
     }
     .num { grid-area: num; } .who { grid-area: who; } .amt { grid-area: amt; }
-    .room { display: none; } .who .m-room { display: inline; }
     .items { grid-area: items; } .notes { grid-area: notes; }
     .time { grid-area: time; } .pay { grid-area: pay; }
     .checks { grid-area: chk; display: flex; justify-content: flex-end; gap: 14px; }
@@ -137,7 +154,6 @@
   }
   @media (min-width: 761px) {
     .checks { display: contents; }
-    .who .m-room { display: none; }
   }
 </style>
 </head>
@@ -187,7 +203,7 @@
           <button type="button" data-f="todo">To make</button>
         </div>
         <button type="button" class="sort" id="sort" title="Change order">Oldest first</button>
-        <input class="search" id="search" type="search" placeholder="Search name, room…">
+        <input class="search" id="search" type="search" placeholder="Search name, email, item…">
         <span class="updated" id="updated"></span>
       </div>
     </div>
@@ -196,8 +212,8 @@
 
   <div id="ordersView">
     <div class="head" id="head">
-      <span>#</span><span>Time</span><span>Name</span><span>Room</span><span>Items</span><span>Notes</span>
-      <span style="text-align:right">Total</span><span>Pay</span><span class="c">Paid</span><span class="c" title="Ticking Ready emails the customer">Ready</span>
+      <span>#</span><span>Time</span><span>Name</span><span>Items</span><span>Notes</span>
+      <span style="text-align:right">Total</span><span>Pay</span><span class="c">Paid</span><span class="c" title="Ticking Ready emails the customer">Ready</span><span></span>
     </div>
     <div class="list" id="list"><div class="msg">Loading…</div></div>
   </div>
@@ -218,6 +234,17 @@
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal" id="delBox" role="dialog" aria-modal="true" aria-labelledby="delTitle" hidden>
+  <div class="sheet">
+    <h3 id="delTitle">Delete order?</h3>
+    <p class="what" id="delWhat"></p>
+    <p class="note">Use this for cancelled or test orders. It's removed from the kitchen page and the spreadsheet for good.</p>
+    <div class="btns">
+      <button type="button" class="keep" id="delKeep">Keep it</button>
+      <button type="button" class="danger" id="delYes">Delete order</button>
+    </div>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="common.js"></script>
@@ -235,7 +262,7 @@ window.DEMO = (() => {
     const qty = [1 + (i % 2), 1];
     const total = picks[0][1] * qty[0] + picks[1][1] * qty[1];
     return { id: '20261011-' + (i + 1), number: i + 1, time: (9 + Math.floor(i / 4)) + ':' + String((i * 13) % 60).padStart(2, '0') + ' PM',
-      name: n, room: String(100 + i * 17), email: n.split(' ')[0].toLowerCase() + '@nd.edu', items: `${qty[0]}× ${picks[0][0]}, ${qty[1]}× ${picks[1][0]}`,
+      name: n, email: n.split(' ')[0].toLowerCase() + '@nd.edu', items: `${qty[0]}× ${picks[0][0]}, ${qty[1]}× ${picks[1][0]}`,
       sandwiches: qty[0] + qty[1], total, payment: i % 3 ? 'Card' : 'Cash',
       notes: notes[i % notes.length], paid: i < 3, ready: i < 5, notified: i < 5 };
   });
@@ -253,6 +280,7 @@ window.DEMO = (() => {
     },
     setOpen: async (pin, v) => (open = v),
     getSheetUrl: async () => 'https://docs.google.com/spreadsheets/',
+    deleteOrder: async (pin, id) => { orders.splice(orders.findIndex(x => x.id === id), 1); return true; },
     getAdminMenu: async () => menu.map(([name, price]) => ({ name, price, category: 'Sandwiches', available: avail[name] }))
       .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] }))),
     setItemAvailable: async (pin, name, v) => (avail[name] = v),
@@ -302,6 +330,11 @@ async function load() {
       ['paid', 'ready'].forEach(f => { const k = o.id + f; if (k in S.pending) o[f] = S.pending[k]; });
     });
     const fresh = S.seen ? data.orders.filter(o => !S.seen.has(o.id)).map(o => o.id) : [];
+    // orders that vanished since the last refresh were cancelled by the customer
+    if (S.seen) {
+      const gone = S.orders.filter(o => S.seen.has(o.id) && !data.orders.some(n => n.id === o.id));
+      if (gone.length) toast(gone.map(o => `Order #${o.number} (${o.name}) was cancelled by the customer`).join(' · '));
+    }
     S.seen = new Set(data.orders.map(o => o.id));
     S.orders = data.orders;
     render(new Set(fresh));
@@ -341,7 +374,7 @@ function render(fresh) {
   const q = $('search').value.trim().toLowerCase();
   const rows = all.filter(o =>
     (S.filter === 'all' || (S.filter === 'unpaid' && !o.paid) || (S.filter === 'todo' && !o.ready)) &&
-    (!q || [o.name, o.room, o.email, o.items, o.notes, '#' + o.number].join(' ').toLowerCase().includes(q)));
+    (!q || [o.name, o.email, o.items, o.notes, '#' + o.number].join(' ').toLowerCase().includes(q)));
   rows.sort((a, b) => S.newestFirst ? b.number - a.number : a.number - b.number);
 
   if (!rows.length) {
@@ -352,8 +385,7 @@ function render(fresh) {
     <div class="row${o.paid ? ' paid' : ''}${o.ready ? ' ready' : ''}${fresh.has(o.id) ? ' fresh' : ''}" data-id="${esc(o.id)}">
       <span class="num">#${o.number}</span>
       <span class="time">${esc(o.time)}</span>
-      <span class="who" title="${esc(o.name)} · ${esc(o.email)}">${esc(o.name)}<span class="m-room"> · ${esc(o.room)}</span></span>
-      <span class="room">${esc(o.room)}</span>
+      <span class="who" title="${esc(o.name)} · ${esc(o.email)}">${esc(o.name)}</span>
       <span class="items">${esc(o.items)}</span>
       <span class="notes">${esc(o.notes)}</span>
       <span class="amt">${money(o.total)}</span>
@@ -361,9 +393,53 @@ function render(fresh) {
       <span class="checks">
         <label class="c"><input type="checkbox" data-f="paid" ${o.paid ? 'checked' : ''} aria-label="Paid, order ${o.number}"><span class="m-label">Paid</span></label>
         <label class="c" title="${o.notified ? 'Ready email sent' : 'Tick to email the customer'}"><input type="checkbox" data-f="ready" ${o.ready ? 'checked' : ''} aria-label="Ready, order ${o.number}"><span class="m-label">Ready</span>${o.notified ? '<span class="sent" aria-label="email sent">✉</span>' : ''}</label>
+        <button type="button" class="del" data-del="${esc(o.id)}" title="Delete order" aria-label="Delete order ${o.number}">${TRASH}</button>
       </span>
     </div>`).join('');
 }
+
+/* ---- delete one order (cancelled or test) ---- */
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+let delId = null;
+
+$('list').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-del]');
+  if (!b) return;
+  const o = S.orders.find(x => x.id === b.dataset.del);
+  if (!o) return;
+  delId = o.id;
+  $('delTitle').textContent = `Delete order #${o.number}?`;
+  $('delWhat').textContent = `${o.name} · ${o.items} · ${money(o.total)}`;
+  $('delYes').disabled = false;
+  $('delYes').textContent = 'Delete order';
+  $('delBox').hidden = false;
+  $('delKeep').focus();
+});
+
+function closeDel() { $('delBox').hidden = true; delId = null; }
+$('delKeep').addEventListener('click', closeDel);
+$('delBox').addEventListener('click', (e) => { if (e.target === $('delBox')) closeDel(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('delBox').hidden) closeDel(); });
+
+$('delYes').addEventListener('click', async () => {
+  const id = delId;
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return closeDel();
+  $('delYes').disabled = true;
+  $('delYes').textContent = 'Deleting…';
+  try {
+    await call('deleteOrder', S.pin, id);
+    S.orders = S.orders.filter(x => x.id !== id);
+    if (S.seen) S.seen.delete(id);
+    closeDel();
+    render();
+    toast(`Order #${o.number} deleted`);
+  } catch (err) {
+    closeDel();
+    showError(`Couldn't delete #${o.number}: ${err.message}`);
+    load();
+  }
+});
 
 $('list').addEventListener('change', async (e) => {
   const box = e.target.closest('input[data-f]');

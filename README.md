@@ -71,12 +71,14 @@ Tip: if the QR code points at your own domain, you can move the site later witho
   - **Paid**: tick it when they pay at pickup. The stats bar shows Collected and Owed.
   - The **Unpaid** and **To make** filters, search, and the date picker let you look back at past nights.
 - **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names and ingredients are edited in the **Menu** tab of the spreadsheet.
+- **Delete an order** (trash icon at the end of its row): for cancelled or test orders. It asks first, then removes the order from the spreadsheet for good. If the customer still has their order page open, it switches to "Order cancelled".
+- **Customers can cancel** from their order page until you tick **Ready** (or Paid). After that the button disappears and the backend refuses. Each order has a private cancel key, so nobody can cancel someone else's order. The kitchen page shows "Order #7 was cancelled by the customer" and drops it from the list.
 - **Hungry Man deal** (switch at the top of the Menu tab): every 2 sandwiches + 1 drink takes $1 off, and it stacks (4 sandwiches + 2 drinks = $2 off). Customers see a banner, the discount in their cart, and a nudge like "Add a drink to save $1". The backend calculates the discount, so it can't be faked. It's saved in the **Discount** column of Orders, the order's Items text, and the Dashboard's "Hungry Man discounts" total. Change the rules with the `DEAL_*` settings in `Code.gs`.
 
 ## The spreadsheet (Google Drive → Ellie's Deli → Ellie's Deli — Orders)
 
 - **Dashboard**: total revenue, collected vs. still owed, orders, sandwiches sold, average order, best seller, a by-night table, most popular items, and charts.
-- **Orders**: one row per order: night, time, name, room, email, items, total, payment, notes, Paid, Ready, and when the ready email went out.
+- **Orders**: one row per order: night, time, name, email, items, total, payment, notes, Paid, Ready, when the ready email went out, and the deal discount. (The Room column is only filled for older orders; the form no longer asks for it.)
 - **Order Items**: one row per item, which feeds the popularity stats.
 - **Menu**: items, category, price, Available, ingredients.
 

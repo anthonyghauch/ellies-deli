@@ -28,15 +28,15 @@
     width: 8.5in; height: 11in; margin: 0 auto 24px; background: var(--white); overflow: hidden;
     display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,.12);
   }
-  .top { background: var(--green); padding: .35in .5in .3in; }
+  .top { background: var(--green); padding: .3in .5in .26in; }
   .top .plaque { padding: .22in .2in .2in; border-width: 3px; }
   .top .plaque .logo { font-size: 66px; }
   .top .plaque .ln + .ln { margin-top: 12px; }
   .top .plaque .tag { font-size: 19px; margin-top: 14px; }
 
-  .scan { display: flex; align-items: center; gap: .45in; padding: .35in .6in .3in; }
+  .scan { display: flex; align-items: center; gap: .45in; padding: .22in .6in .18in; }
   .qr {
-    flex: none; width: 3.2in; height: 3.2in; padding: .18in; border: 4px solid var(--green); border-radius: 20px;
+    flex: none; width: 2.75in; height: 2.75in; padding: .18in; border: 4px solid var(--green); border-radius: 20px;
     display: grid; place-items: center; background: var(--white);
   }
   .qr svg { width: 100%; height: 100%; display: block; }
@@ -47,9 +47,20 @@
   .cta .url.long { font-size: 16px; }
   .cta .url .nw { white-space: nowrap; }
 
-  .menu { flex: 1; margin: 0 .6in; border-top: 2px solid var(--green-line); padding-top: .18in; }
+  .deal {
+    display: flex; align-items: center; gap: .2in; margin: 0 .6in .18in; padding: .1in .22in;
+    background: #fdf4e8; border: 2px solid var(--tan); border-radius: 14px;
+  }
+  .deal .badge {
+    flex: none; width: .78in; height: .78in; border-radius: 50%; background: var(--green); color: var(--tan);
+    display: grid; place-items: center; text-align: center; font: 700 24px/1 var(--display);
+  }
+  .deal .badge small { display: block; font-size: 12px; letter-spacing: .1em; margin-top: 2px; }
+  .deal .t { font: 700 26px/1.1 var(--display); letter-spacing: .04em; color: var(--green-dark); }
+  .deal .d { font-size: 17px; margin-top: 3px; }
+  .menu { flex: 1; margin: 0 .6in; border-top: 2px solid var(--green-line); padding-top: .16in; }
   .menu h3 { font: 700 22px/1 var(--display); letter-spacing: .04em; color: var(--green); margin: 0 0 10px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px .35in; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px .35in; }
   .it { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; align-content: start; }
   .it b { font-size: 16px; }
   .it .p { font-weight: 700; color: var(--green); font-size: 16px; }
@@ -58,6 +69,11 @@
   .drinks b { color: var(--green); }
 
   .foot { background: var(--green); color: var(--tan); text-align: center; padding: .15in; font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+
+  /* ?clean=1 shows just the poster (used to make the PNG version) */
+  body.clean { background: var(--white); }
+  body.clean .controls, body.clean .demo-bar { display: none; }
+  body.clean .page { margin: 0; box-shadow: none; zoom: 1 !important; }
 
   @media print {
     @page { size: letter; margin: 0; }
@@ -103,6 +119,14 @@
     </div>
   </div>
 
+  <div class="deal">
+    <div class="badge">$1<small>OFF</small></div>
+    <div>
+      <div class="t">Hungry Man deal</div>
+      <div class="d">Every <b>2 sandwiches + a drink</b> = <b>$1 off</b>. It stacks!</div>
+    </div>
+  </div>
+
   <div class="menu">
     <h3>Sandwiches</h3>
     <div class="grid" id="menu"></div>
@@ -130,6 +154,7 @@ document.getElementById('menu').innerHTML = MENU.map(([n, p, d]) =>
   `<div class="it"><b>${esc(n)}</b><span class="p">$${p}</span><span class="d">${esc(d)}</span></div>`).join('');
 
 const input = document.getElementById('url');
+if (new URLSearchParams(location.search).has('clean')) document.body.classList.add('clean');
 
 function draw() {
   const url = input.value.trim();

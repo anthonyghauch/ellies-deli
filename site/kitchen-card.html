@@ -62,6 +62,11 @@
 
   .foot { background: var(--green); color: var(--tan); text-align: center; padding: .15in; font-size: 14px; font-weight: 700; letter-spacing: .06em; }
 
+  /* ?clean=1 shows just the card (used to make the PNG version) */
+  body.clean { background: var(--white); }
+  body.clean .controls, body.clean .demo-bar { display: none; }
+  body.clean .page { margin: 0; box-shadow: none; zoom: 1 !important; }
+
   @media print {
     @page { size: letter; margin: 0; }
     body { background: var(--white); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -110,7 +115,7 @@
       <li><span><b>Made it?</b> Tick <b>Ready</b>.<small>The customer gets an email and their phone shows “Your order is ready!”.</small></span></li>
       <li><span><b>They paid?</b> Tick <b>Paid</b> (card or cash).<small>The bar at the top shows what's collected and what's still owed.</small></span></li>
       <li><span><b>Ran out of something?</b> Open the <b>Menu</b> tab and switch it to <b>Sold out</b>.<small>Customers see it greyed out right away. The <b>Hungry Man deal</b> on/off switch is at the top of that tab.</small></span></li>
-      <li><span><b>Looking for an order?</b> Use <b>Unpaid</b>, <b>To make</b>, or search by name or room.<small>Every order is also saved in the Google Sheet (Sheet ↗ button).</small></span></li>
+      <li><span><b>Cancelled or a test order?</b> Tap the <b>trash icon</b> on its row to delete it.<small>Customers can cancel on their own until you tick Ready. Use <b>Unpaid</b>, <b>To make</b> or search to find orders.</small></span></li>
     </ol>
   </div>
 
@@ -120,6 +125,7 @@
 <script>
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const input = document.getElementById('url');
+if (new URLSearchParams(location.search).has('clean')) document.body.classList.add('clean');
 
 function draw() {
   const url = input.value.trim();

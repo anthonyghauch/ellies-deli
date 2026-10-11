@@ -56,7 +56,6 @@
   }
   input:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
   textarea { resize: vertical; min-height: 64px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chips input { position: absolute; opacity: 0; pointer-events: none; }
   .chips label { margin: 0; padding: 8px 16px; border: 1.5px solid var(--green-line); border-radius: 999px; cursor: pointer; font-weight: 500; }
@@ -102,6 +101,16 @@
   .line.deal-line { color: var(--green); font-weight: 700; }
   .deal-hint { margin-top: 8px; padding: 7px 10px; border-radius: 8px; background: #fdf4e8; color: #7a4a12; font-size: 13px; font-weight: 500; }
   .warn { font-size: 13px; max-width: 380px; margin: 12px auto 0; }
+  .cancel-box { margin: 16px auto 0; max-width: 380px; }
+  .linkish { background: none; border: 0; color: var(--danger); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px; }
+  .confirm-cancel { border: 1.5px solid #f3c7c3; background: #fdf3f2; border-radius: 12px; padding: 12px; color: var(--ink); }
+  .confirm-cancel p { margin: 0 0 10px; }
+  .confirm-cancel .btns { display: flex; gap: 8px; justify-content: center; }
+  .confirm-cancel button { height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  .confirm-cancel .keep { border: 1.5px solid var(--green-line); background: var(--white); color: var(--ink); }
+  .confirm-cancel .yes { border: 0; background: var(--danger); color: var(--white); }
+  .confirm-cancel .yes:disabled { opacity: .6; }
+  .cancel-err { color: var(--danger); font-size: 13px; margin-top: 8px; }
   .c-items { margin-top: 14px; color: var(--ink); }
   .headline { border-radius: 16px; padding: 14px 16px; margin: 6px auto 0; max-width: 420px; transition: background .3s; }
   .headline .big { margin-bottom: 4px; }
@@ -161,16 +170,8 @@
       <div id="summary"></div>
       <div class="deal-hint" id="dealHint" hidden></div>
 
-      <div class="row2">
-        <div>
-          <label for="name">Name</label>
-          <input type="text" id="name" autocomplete="name" maxlength="60" required>
-        </div>
-        <div>
-          <label for="room">Room</label>
-          <input type="text" id="room" maxlength="40" placeholder="e.g. 214" required>
-        </div>
-      </div>
+      <label for="name">Name</label>
+      <input type="text" id="name" autocomplete="name" maxlength="60" required>
       <label for="email">Email <small>(we'll email you when it's ready)</small></label>
       <input type="email" id="email" autocomplete="email" inputmode="email" maxlength="100" placeholder="you@nd.edu" required>
 
@@ -197,6 +198,17 @@
     </div>
     <div id="cItems" class="c-items"></div>
     <div class="pay"><strong id="cTotal"></strong><br><span id="cPay"></span></div>
+    <div class="cancel-box" id="cancelBox" hidden>
+      <button type="button" class="linkish" id="cancelBtn">Cancel this order</button>
+      <div class="confirm-cancel" id="cancelConfirm" hidden>
+        <p>Cancel order <b id="cancelNum"></b>? You can only do this before it's ready.</p>
+        <div class="btns">
+          <button type="button" class="keep" id="cancelKeep">Keep my order</button>
+          <button type="button" class="yes" id="cancelYes">Yes, cancel it</button>
+        </div>
+      </div>
+      <div class="cancel-err" id="cancelErr" role="alert"></div>
+    </div>
     <p class="warn">If you don't come pay for this order, you won't be able to order again until you do.</p>
     <button class="ghost" id="again" type="button">Place another order</button>
   </div>
@@ -230,12 +242,19 @@ window.DEMO = {
   placeOrder: async (o) => {
     const t = cartTotals(o.items.map(i => ({ name: i.name, qty: i.qty, price: state.prices[i.name] })));
     DEMO.readyAt = Date.now() + 6000;  // demo: order turns "ready" after 6 seconds
+    DEMO.cancelled = false;
     let items = o.items.map(i => i.qty + '× ' + i.name).join(', ');
     if (t.deals) items += ' · Hungry Man ×' + t.deals + ' (−' + money(t.discount) + ')';
     return { id: '20261011-7', number: 7, total: t.total, subtotal: t.subtotal, discount: t.discount, deals: t.deals,
-      items, payment: o.payment, email: o.email, paymentNote: 'Pay by card or cash when you pick up in the basement.' };
+      items, payment: o.payment, email: o.email, paymentNote: 'Pay by card or cash when you pick up in the basement.',
+      cancelKey: 'demo' };
   },
-  getOrderStatus: async () => ({ ready: Date.now() > (DEMO.readyAt || 0), paid: false }),
+  cancelOrder: async () => {
+    if (Date.now() > (DEMO.readyAt || 0)) throw new Error('Too late to cancel: your order is already ready. Come pick it up!');
+    DEMO.cancelled = true;
+    return true;
+  },
+  getOrderStatus: async () => (DEMO.cancelled ? null : { ready: Date.now() > (DEMO.readyAt || 0), paid: false }),
 };
 
 /* ---- state ---- */
@@ -265,7 +284,6 @@ async function init() {
   $('payments').innerHTML = data.paymentMethods.map((m, i) =>
     `<input type="radio" name="pay" id="pay${i}" value="${esc(m)}" ${i === 0 ? 'checked' : ''}><label for="pay${i}">${esc(m)}</label>`).join('');
   $('name').value = store.get('ed_name');
-  $('room').value = store.get('ed_room');
   $('email').value = store.get('ed_email');
   if (!active) $('order').hidden = false;
 }
@@ -397,10 +415,9 @@ $('checkout').addEventListener('submit', async (e) => {
   const err = $('error');
   err.textContent = '';
   const items = cartLines().map(({ name, qty }) => ({ name, qty }));
-  const name = $('name').value.trim(), room = $('room').value.trim();
+  const name = $('name').value.trim();
   if (!items.length) { err.textContent = 'Add something to your order first.'; return; }
   if (!name) { err.textContent = 'Please enter your name.'; $('name').focus(); return; }
-  if (!room) { err.textContent = 'Please enter your room.'; $('room').focus(); return; }
   const email = $('email').value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email.'; $('email').focus(); return; }
   unlockAudio();
@@ -411,9 +428,9 @@ $('checkout').addEventListener('submit', async (e) => {
   try {
     // same ID for every retry of this submission, so the server never saves it twice
     state.requestId = state.requestId || (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-    const res = await call('placeOrder', { items, name, room, email, notes: $('notes').value.trim(), payment, requestId: state.requestId });
+    const res = await call('placeOrder', { items, name, email, notes: $('notes').value.trim(), payment, requestId: state.requestId });
     state.requestId = null;
-    store.set('ed_name', name); store.set('ed_room', room); store.set('ed_email', email);
+    store.set('ed_name', name); store.set('ed_email', email);
     res.at = Date.now();
     store.set('ed_active', JSON.stringify(res));
     showConfirm(res);
@@ -458,16 +475,22 @@ function showConfirm(o) {
   setStage(o.stage || 'received', false);
   $('confirm').hidden = false;
   window.scrollTo(0, 0);
-  if (o.stage !== 'done') poll();
+  if (!isFinal(o.stage)) poll();
 }
+
+const isFinal = (stage) => stage === 'done' || stage === 'cancelled';
 
 function setStage(stage, alert) {
   const o = state.active;
   o.stage = stage;
   store.set('ed_active', JSON.stringify(o));
   $('confirm').classList.toggle('is-ready', stage === 'ready');
-  document.querySelector('#confirm .warn').hidden = stage === 'done';
-  $('st2').classList.toggle('on', stage !== 'received');
+  document.querySelector('#confirm .warn').hidden = isFinal(stage);
+  $('cancelBox').hidden = !(stage === 'received' && o.cancelKey);
+  $('cancelConfirm').hidden = true;
+  $('cancelBtn').hidden = false;
+  $('cancelErr').textContent = '';
+  $('st2').classList.toggle('on', stage === 'ready' || stage === 'done');
   $('st3').classList.toggle('on', stage === 'done');
   ['st1', 'st2', 'st3'].forEach((id, i) => $(id).classList.toggle('now', ['received', 'ready', 'done'][i] === stage));
   if (stage === 'received') {
@@ -480,6 +503,12 @@ function setStage(stage, alert) {
     $('cSub').textContent = 'Come down to the basement to pick it up.';
     document.title = 'Ready! · ' + TITLE;
     if (alert) ping();
+  } else if (stage === 'cancelled') {
+    $('cHead').textContent = 'Order cancelled';
+    $('cSub').textContent = o.cancelledBy === 'you'
+      ? "You cancelled this order. Nothing to pay."
+      : 'This order was cancelled by the kitchen. Questions? Come by the basement.';
+    document.title = TITLE;
   } else {
     $('cHead').textContent = 'Enjoy!';
     $('cSub').textContent = "Thanks for ordering from Ellie's.";
@@ -490,15 +519,47 @@ function setStage(stage, alert) {
 async function poll() {
   clearTimeout(state.pollTimer);
   const o = state.active;
-  if (!o || o.stage === 'done') return;
+  if (!o || isFinal(o.stage)) return;
   try {
     const st = await call('getOrderStatus', o.id);
     if (state.active !== o) return;
+    if (st === null) { setStage('cancelled', false); return; }  // the kitchen deleted it
     if (st && st.paid) { setStage('done', false); return; }
     if (st && st.ready && o.stage !== 'ready') setStage('ready', true);
   } catch (e) { /* try again next tick */ }
   state.pollTimer = setTimeout(poll, POLL_MS);
 }
+
+/* ---- customer cancels (only before the kitchen marks it ready) ---- */
+$('cancelBtn').addEventListener('click', () => {
+  $('cancelNum').textContent = '#' + state.active.number;
+  $('cancelBtn').hidden = true;
+  $('cancelConfirm').hidden = false;
+  $('cancelErr').textContent = '';
+});
+$('cancelKeep').addEventListener('click', () => {
+  $('cancelConfirm').hidden = true;
+  $('cancelBtn').hidden = false;
+});
+$('cancelYes').addEventListener('click', async () => {
+  const o = state.active;
+  if (!o) return;
+  $('cancelYes').disabled = true;
+  $('cancelYes').textContent = 'Cancelling…';
+  try {
+    await call('cancelOrder', o.id, o.cancelKey);
+    clearTimeout(state.pollTimer);
+    o.cancelledBy = 'you';
+    setStage('cancelled', false);
+  } catch (err) {
+    $('cancelConfirm').hidden = true;
+    $('cancelErr').textContent = err.message;
+    poll();  // it may have just turned ready
+  } finally {
+    $('cancelYes').disabled = false;
+    $('cancelYes').textContent = 'Yes, cancel it';
+  }
+});
 
 function stopTracking() {
   clearTimeout(state.pollTimer);
