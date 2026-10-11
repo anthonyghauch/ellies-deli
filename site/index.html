@@ -114,6 +114,7 @@
   .c-items { margin-top: 14px; color: var(--ink); }
   .headline { border-radius: 16px; padding: 14px 16px; margin: 6px auto 0; max-width: 420px; transition: background .3s; }
   .headline .big { margin-bottom: 4px; }
+  .queue { display: inline-block; margin-top: 10px; padding: 6px 14px; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
   #confirm.is-ready .headline { background: var(--green); color: var(--white); animation: pop .5s ease-out; }
   #confirm.is-ready .headline .big { color: var(--tan); font-size: 28px; }
   @keyframes pop { 0% { transform: scale(.92); } 60% { transform: scale(1.04); } 100% { transform: none; } }
@@ -197,6 +198,7 @@
     <div class="headline" role="status" aria-live="polite">
       <div class="big" id="cHead">Order received!</div>
       <div id="cSub"></div>
+      <div class="queue" id="cQueue" hidden></div>
     </div>
     <div id="cItems" class="c-items"></div>
     <div class="pay"><strong id="cTotal"></strong><br><span id="cPay"></span></div>
@@ -256,7 +258,8 @@ window.DEMO = {
     DEMO.cancelled = true;
     return true;
   },
-  getOrderStatus: async () => (DEMO.cancelled ? null : { ready: Date.now() > (DEMO.readyAt || 0), paid: false }),
+  getOrderStatus: async () => (DEMO.cancelled ? null : { ready: Date.now() > (DEMO.readyAt || 0), paid: false,
+    ahead: Math.max(0, Math.ceil(((DEMO.readyAt || 0) - Date.now()) / 2000)) }),
 };
 
 /* ---- state ---- */
@@ -492,6 +495,7 @@ function setStage(stage, alert) {
   $('cancelConfirm').hidden = true;
   $('cancelBtn').hidden = false;
   $('cancelErr').textContent = '';
+  if (stage !== 'received') $('cQueue').hidden = true;
   $('st2').classList.toggle('on', stage === 'ready' || stage === 'done');
   $('st3').classList.toggle('on', stage === 'done');
   ['st1', 'st2', 'st3'].forEach((id, i) => $(id).classList.toggle('now', ['received', 'ready', 'done'][i] === stage));
@@ -528,6 +532,7 @@ async function poll() {
     if (st === null) { setStage('cancelled', false); return; }  // the kitchen deleted it
     if (st && st.paid) { setStage('done', false); return; }
     if (st && st.ready && o.stage !== 'ready') setStage('ready', true);
+    if (st && !st.ready && typeof st.ahead === 'number') showQueue(st.ahead);
   } catch (e) { /* try again next tick */ }
   state.pollTimer = setTimeout(poll, POLL_MS);
 }
@@ -562,6 +567,12 @@ $('cancelYes').addEventListener('click', async () => {
     $('cancelYes').textContent = 'Yes, cancel it';
   }
 });
+
+/** "3 orders ahead of you" under the order number while it waits. */
+function showQueue(ahead) {
+  $('cQueue').textContent = ahead === 0 ? "You're next!" : ahead === 1 ? '1 order ahead of you' : ahead + ' orders ahead of you';
+  $('cQueue').hidden = false;
+}
 
 function stopTracking() {
   clearTimeout(state.pollTimer);
