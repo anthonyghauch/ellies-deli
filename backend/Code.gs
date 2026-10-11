@@ -130,9 +130,16 @@ function placeOrder(order) {
   const sandwiches = lines.filter(l => isSandwich_(l.category)).reduce((s, l) => s + l.qty, 0);
   const itemsText = lines.map(l => l.qty + '× ' + l.name).join(', ');
 
+  // The website retries when Google drops a reply; the same requestId must not create a second order.
+  const requestId = clean_(order.requestId, 64);
+  const cache = CacheService.getScriptCache();
+
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    const already = requestId && cache.get('req_' + requestId);
+    if (already) return JSON.parse(already);
+
     const ss = getSpreadsheet_();
     const now = new Date();
     const night = serviceNight_(now);
@@ -155,8 +162,10 @@ function placeOrder(order) {
       lines.map(l => [id, night, l.name, l.category, l.qty, l.price, round2_(l.qty * l.price)]));
 
     SpreadsheetApp.flush();
-    return { id: id, number: number, total: total, items: itemsText, payment: payment,
+    const result = { id: id, number: number, total: total, items: itemsText, payment: payment,
       email: email, paymentNote: CONFIG.PAYMENT_NOTE };
+    if (requestId) cache.put('req_' + requestId, JSON.stringify(result), 21600);
+    return result;
   } finally {
     lock.releaseLock();
   }

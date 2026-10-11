@@ -338,7 +338,10 @@ $('checkout').addEventListener('submit', async (e) => {
   const btn = $('submit');
   btn.disabled = true; btn.textContent = 'Sending…';
   try {
-    const res = await call('placeOrder', { items, name, room, email, notes: $('notes').value.trim(), payment });
+    // same ID for every retry of this submission, so the server never saves it twice
+    state.requestId = state.requestId || (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+    const res = await call('placeOrder', { items, name, room, email, notes: $('notes').value.trim(), payment, requestId: state.requestId });
+    state.requestId = null;
     store.set('ed_name', name); store.set('ed_room', room); store.set('ed_email', email);
     res.at = Date.now();
     store.set('ed_active', JSON.stringify(res));

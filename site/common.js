@@ -3,20 +3,31 @@
 const API_URL = String(window.ELLIES_API || '').trim();
 const DEMO_MODE = !API_URL;
 
-/** Call a backend function. Demo mode uses the page's window.DEMO fake backend instead. */
+/**
+ * Call a backend function. Demo mode uses the page's window.DEMO fake backend instead.
+ * Google sometimes fails to hand back a finished answer (404/5xx), so retry a couple of times.
+ * Every backend call is safe to repeat (placeOrder dedupes by requestId).
+ */
 async function call(fn, ...args) {
   if (DEMO_MODE) return window.DEMO[fn](...args);
-  let res;
-  try {
-    // text/plain body = "simple" request, so Apps Script needs no CORS preflight
-    res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn, args }) });
-  } catch (e) {
-    throw new Error("Can't reach the server. Check your connection and try again.");
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 700 * attempt));
+    let res;
+    try {
+      // text/plain body = "simple" request, so Apps Script needs no CORS preflight
+      res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn, args }) });
+    } catch (e) {
+      lastError = new Error("Can't reach the server. Check your connection and try again.");
+      continue;
+    }
+    if (!res.ok) { lastError = new Error('Server error (' + res.status + '). Please try again.'); continue; }
+    let data;
+    try { data = await res.json(); } catch (e) { lastError = new Error('Server sent a bad reply. Please try again.'); continue; }
+    if (!data.ok) throw new Error(data.error || 'Something went wrong');
+    return data.result;
   }
-  if (!res.ok) throw new Error('Server error (' + res.status + ')');
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Something went wrong');
-  return data.result;
+  throw lastError;
 }
 
 const $ = (id) => document.getElementById(id);
