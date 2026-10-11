@@ -126,11 +126,10 @@ function placeOrder(order) {
   if (!isOpen_()) throw new Error("Sorry, we're not taking orders right now.");
 
   const name = clean_(order.name, 60);
-  const room = clean_(order.room, 40);
+  const room = clean_(order.room, 40);   // optional now; kept if an older page still sends it
   const email = clean_(order.email, 100).toLowerCase();
   const notes = clean_(order.notes, 300);
   if (!name) throw new Error('Please enter your name.');
-  if (!room) throw new Error('Please enter your room.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email.');
   const payment = CONFIG.PAYMENT_METHODS.indexOf(order.payment) >= 0
     ? order.payment : CONFIG.PAYMENT_METHODS[0];
