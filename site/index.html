@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ellie's Deli · Order online</title>
+<meta name="description" content="Order grilled cheese & toasted sandwiches from Ellie's Deli. Pick up and pay by card or cash in the basement.">
+<meta name="theme-color" content="#0f7a5f">
+<meta property="og:title" content="Ellie's Deli">
+<meta property="og:description" content="Grilled cheese & toasted sandwiches. Order online, pick up in the basement.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="brand.css">
+<style>
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+  header.masthead { padding: 18px 0 20px; }
+  .status {
+    display: flex; width: fit-content; align-items: center; gap: 6px; margin: 14px auto 0;
+    background: rgba(255,255,255,.14); border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 500;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #7ee2b8; }
+  .status.closed .dot { background: #ffb4ab; }
+
+  /* menu */
+  main { padding-bottom: 120px; }
+  h2 { font: 700 22px/1.2 var(--display); letter-spacing: .04em; color: var(--green); margin: 28px 0 6px; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--green-line); }
+  .item:last-child { border-bottom: 0; }
+  .info { flex: 1; min-width: 0; }
+  .name { font-weight: 700; }
+  .desc { color: var(--muted); font-size: 14px; }
+  .price { color: var(--green); font-weight: 700; font-size: 15px; }
+  .soldout .name, .soldout .desc, .soldout .price { color: #9aa9a3; }
+  .soldout .price { text-decoration: line-through; }
+  .pill { flex: none; font-size: 13px; font-weight: 700; color: var(--muted); background: #eef1ef; border-radius: 999px; padding: 6px 12px; }
+  .add {
+    flex: none; border: 1.5px solid var(--green); background: var(--white); color: var(--green);
+    border-radius: 999px; height: 38px; min-width: 76px; font-weight: 700; cursor: pointer;
+  }
+  .add:hover { background: var(--green-soft); }
+  .stepper { flex: none; display: flex; align-items: center; background: var(--green); color: var(--white); border-radius: 999px; height: 38px; }
+  .stepper button { background: none; border: 0; color: inherit; width: 36px; height: 38px; font-size: 20px; cursor: pointer; }
+  .stepper button:disabled { opacity: .35; cursor: default; }
+  .stepper span { min-width: 20px; text-align: center; font-weight: 700; }
+
+  /* checkout */
+  .card { border: 1px solid var(--green-line); border-radius: var(--radius); padding: 18px; margin-top: 28px; }
+  .card h2 { margin-top: 0; }
+  .line { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+  .total { border-top: 1px solid var(--green-line); margin-top: 8px; padding-top: 10px; font-weight: 700; font-size: 18px; }
+  .empty { color: var(--muted); }
+  label { display: block; font-weight: 500; font-size: 14px; margin: 14px 0 6px; }
+  label small { color: var(--muted); font-weight: 400; }
+  input[type=text], input[type=email], textarea {
+    width: 100%; border: 1.5px solid var(--green-line); border-radius: 10px; padding: 11px 12px; background: var(--white);
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  textarea { resize: vertical; min-height: 64px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chips input { position: absolute; opacity: 0; pointer-events: none; }
+  .chips label { margin: 0; padding: 8px 16px; border: 1.5px solid var(--green-line); border-radius: 999px; cursor: pointer; font-weight: 500; }
+  .chips input:checked + label { background: var(--green); border-color: var(--green); color: var(--white); }
+  .chips input:focus-visible + label { box-shadow: 0 0 0 3px var(--green-soft); }
+  .primary {
+    width: 100%; margin-top: 20px; height: 52px; border: 0; border-radius: 12px; background: var(--green); color: var(--white);
+    font-weight: 700; font-size: 17px; cursor: pointer;
+  }
+  .primary:hover { background: var(--green-dark); }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .error { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 1em; }
+
+  /* sticky cart bar */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--white); border-top: 1px solid var(--green-line); transform: translateY(110%); transition: transform .2s;
+  }
+  .bar.show { transform: none; }
+  .bar button {
+    display: flex; justify-content: space-between; align-items: center; max-width: 608px; margin: 0 auto; width: 100%;
+    height: 52px; border: 0; border-radius: 12px; background: var(--green); color: var(--white); padding: 0 18px;
+    font-weight: 700; font-size: 16px; cursor: pointer;
+  }
+
+  /* states */
+  .notice { text-align: center; padding: 56px 8px; color: var(--muted); }
+  .notice .big { font: 700 26px/1.2 var(--display); color: var(--green); margin-bottom: 8px; }
+  .done-num { font: 700 60px/1 var(--display); color: var(--green); margin: 8px 0; }
+  .ghost { margin-top: 24px; background: none; border: 1.5px solid var(--green); color: var(--green); border-radius: 12px; height: 46px; padding: 0 22px; font-weight: 700; cursor: pointer; }
+  .pay { background: var(--green-soft); border-radius: 12px; padding: 14px; margin: 18px auto 0; max-width: 380px; color: var(--ink); }
+  .rules { background: var(--green-soft); border-radius: var(--radius); padding: 14px 16px; margin-top: 20px; font-size: 14px; color: var(--ink); }
+  .warn { font-size: 13px; max-width: 380px; margin: 12px auto 0; }
+  .c-items { margin-top: 14px; color: var(--ink); }
+  .headline { border-radius: 16px; padding: 14px 16px; margin: 6px auto 0; max-width: 420px; transition: background .3s; }
+  .headline .big { margin-bottom: 4px; }
+  #confirm.is-ready .headline { background: var(--green); color: var(--white); animation: pop .5s ease-out; }
+  #confirm.is-ready .headline .big { color: var(--tan); font-size: 28px; }
+  @keyframes pop { 0% { transform: scale(.92); } 60% { transform: scale(1.04); } 100% { transform: none; } }
+  .steps { display: flex; list-style: none; padding: 0; margin: 0 auto 28px; max-width: 340px; }
+  .steps li { flex: 1; position: relative; padding-top: 24px; font-size: 13px; color: var(--muted); }
+  .steps li::before {
+    content: ""; position: absolute; z-index: 1; top: 0; left: 50%; transform: translateX(-50%);
+    width: 16px; height: 16px; border-radius: 50%; background: var(--white); border: 2px solid var(--green-line);
+  }
+  .steps li + li::after { content: ""; position: absolute; top: 7px; right: 50%; width: 100%; height: 2px; background: var(--green-line); }
+  .steps li.on { color: var(--green); font-weight: 700; }
+  .steps li.on::before, .steps li.on::after { background: var(--green); border-color: var(--green); }
+  .steps li.now::before { box-shadow: 0 0 0 5px var(--green-soft); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0 8px; }
+  @media (max-width: 380px) { .plaque .logo { font-size: 36px; } }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <div class="plaque">
+      <div class="logo" role="img" aria-label="Ellie's Deli">
+        <div class="ln" aria-hidden="true">ELL<i class="paddle"></i>E’S</div>
+        <div class="ln" aria-hidden="true">DEL<i class="paddle"></i></div>
+      </div>
+      <p class="tag">Grilled cheese &amp; toasted sandwiches</p>
+    </div>
+    <div class="status" id="status" hidden><span class="dot"></span><span id="statusText"></span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="loading" class="notice">Loading the menu…</div>
+
+  <div id="closed" class="notice" hidden>
+    <div class="big">Kitchen's closed</div>
+    We're not taking orders right now. Check back tonight!
+  </div>
+
+  <div id="order" hidden>
+    <div class="rules">
+      Order as many sandwiches as you like, but only if you're sure you can pick them up.
+      Pay by <strong>card or cash</strong> in the basement when you pick up.
+      <span id="maxNote"></span>
+    </div>
+    <div id="menu"></div>
+
+    <form class="card" id="checkout" novalidate>
+      <h2>Your order</h2>
+      <div id="summary"></div>
+
+      <div class="row2">
+        <div>
+          <label for="name">Name</label>
+          <input type="text" id="name" autocomplete="name" maxlength="60" required>
+        </div>
+        <div>
+          <label for="room">Room</label>
+          <input type="text" id="room" maxlength="40" placeholder="e.g. 214" required>
+        </div>
+      </div>
+      <label for="email">Email <small>(we'll email you when it's ready)</small></label>
+      <input type="email" id="email" autocomplete="email" inputmode="email" maxlength="100" placeholder="you@nd.edu" required>
+
+      <label>How will you pay?</label>
+      <div class="chips" id="payments"></div>
+
+      <label for="notes">Notes <small>(anything we should know)</small></label>
+      <textarea id="notes" maxlength="300"></textarea>
+
+      <button class="primary" id="submit" type="submit">Place order</button>
+      <div class="error" id="error" role="alert"></div>
+    </form>
+  </div>
+
+  <div id="confirm" class="notice" hidden>
+    <ol class="steps" aria-label="Order status">
+      <li id="st1" class="on">Received</li><li id="st2">Ready</li><li id="st3">Picked up</li>
+    </ol>
+    <div>Your order number</div>
+    <div class="done-num" id="cNum"></div>
+    <div class="headline" role="status" aria-live="polite">
+      <div class="big" id="cHead">Order received!</div>
+      <div id="cSub"></div>
+    </div>
+    <div id="cItems" class="c-items"></div>
+    <div class="pay"><strong id="cTotal"></strong><br><span id="cPay"></span></div>
+    <p class="warn">If you don't come pay for this order, you won't be able to order again until you do.</p>
+    <button class="ghost" id="again" type="button">Place another order</button>
+  </div>
+
+  <footer>Ellie's Deli · Card or cash accepted</footer>
+</main>
+
+<div class="bar" id="bar"><button type="button" id="barBtn"><span id="barCount"></span><span id="barTotal"></span></button></div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+/* ---- demo backend (used only while config.js has no API link) ---- */
+window.DEMO = {
+  getMenu: async () => ({
+    open: true, paymentMethods: ['Card', 'Cash'], maxQty: 5,
+    paymentNote: 'Pay by card or cash when you pick up in the basement.',
+    items: [
+      ['The Classic', 1, 'Colby Jack'], ['The Porky', 2, 'Colby Jack, Bacon Bits'],
+      ['The Piggy', 2, 'Colby Jack, Pepperoni'], ['The Hammy', 2, 'Colby Jack, Ham'],
+      ['The Jack', 2, 'Pepper Jack, Pepperoni, Jalapeños'], ['The Deece', 3, 'Colby Jack, Havarti, Ham, Bacon Bits'],
+      ['The Frad', 3, 'Colby Jack, Pepper Jack, Ham, Bacon Bits, Jalapeños'],
+      ['The Kitchen Sink', 4, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños'],
+      ['The Nutellie', 1, 'Toasted Nutella'], ['The Duke', 2, 'Toasted Nutella, Bacon Bits'],
+    ].map(([name, price, description]) => ({ name, price, description, category: 'Sandwiches', available: name !== 'The Duke' }))
+      .concat([['Soda', 1], ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
+        .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true }))),
+  }),
+  placeOrder: async (o) => {
+    const total = o.items.reduce((s, it) => s + it.qty * state.prices[it.name], 0);
+    DEMO.readyAt = Date.now() + 6000;  // demo: order turns "ready" after 6 seconds
+    return { id: '20261011-7', number: 7, total, items: o.items.map(i => i.qty + '× ' + i.name).join(', '),
+      payment: o.payment, email: o.email, paymentNote: 'Pay by card or cash when you pick up in the basement.' };
+  },
+  getOrderStatus: async () => ({ ready: Date.now() > (DEMO.readyAt || 0), paid: false }),
+};
+
+/* ---- state ---- */
+const state = { items: [], prices: {}, available: {}, cart: {}, maxQty: 5, closed: false, active: null, pollTimer: null, audio: null };
+const store = storage('localStorage');
+const POLL_MS = 10000;
+const TRACK_HOURS = 10;
+const TITLE = document.title;
+
+async function init() {
+  const active = loadActive();
+  if (active) showConfirm(active);
+  let data;
+  try { data = await call('getMenu'); }
+  catch (e) { if (!active) $('loading').textContent = "Couldn't load the menu. Refresh to try again."; return; }
+  $('loading').hidden = true;
+  $('status').hidden = false;
+  $('status').classList.toggle('closed', !data.open);
+  $('statusText').textContent = data.open ? 'Open, taking orders' : 'Closed right now';
+  if (!data.open) { state.closed = true; if (!active) $('closed').hidden = false; return; }
+
+  state.paymentNote = data.paymentNote;
+  state.maxQty = data.maxQty || 5;
+  applyMenu(data.items);
+  $('maxNote').textContent = `Want more than ${state.maxQty} of the same thing? Please order in person.`;
+  $('payments').innerHTML = data.paymentMethods.map((m, i) =>
+    `<input type="radio" name="pay" id="pay${i}" value="${esc(m)}" ${i === 0 ? 'checked' : ''}><label for="pay${i}">${esc(m)}</label>`).join('');
+  $('name').value = store.get('ed_name');
+  $('room').value = store.get('ed_room');
+  $('email').value = store.get('ed_email');
+  if (!active) $('order').hidden = false;
+}
+
+/** Take a fresh menu from the server; drop anything that sold out from the cart. */
+function applyMenu(items) {
+  state.items = items;
+  state.prices = {}; state.available = {};
+  items.forEach(i => { state.prices[i.name] = i.price; state.available[i.name] = i.available !== false; });
+  Object.keys(state.cart).forEach(n => { if (!state.available[n]) delete state.cart[n]; });
+  renderMenu();
+  renderCart();
+}
+
+async function refreshMenu() {
+  try { applyMenu((await call('getMenu')).items); } catch (e) { /* keep what we have */ }
+}
+
+function renderMenu() {
+  const cats = [];
+  state.items.forEach(i => { if (!cats.includes(i.category)) cats.push(i.category); });
+  $('menu').innerHTML = cats.map(c => `<h2>${esc(c)}</h2>` + state.items
+    .filter(i => i.category === c)
+    .map(i => `<div class="item${state.available[i.name] ? '' : ' soldout'}">
+        <div class="info">
+          <div class="name">${esc(i.name)}</div>
+          ${i.description ? `<div class="desc">${esc(i.description)}</div>` : ''}
+          <div class="price">${money(i.price)}</div>
+        </div>
+        <div data-ctl="${esc(i.name)}">${controlHtml(i.name)}</div>
+      </div>`).join('')).join('');
+}
+
+function controlHtml(name) {
+  if (!state.available[name]) return '<span class="pill">Sold out</span>';
+  const q = state.cart[name] || 0;
+  if (!q) return `<button type="button" class="add" data-act="add" aria-label="Add ${esc(name)}">Add</button>`;
+  return `<div class="stepper"><button type="button" data-act="dec" aria-label="Remove one">−</button><span>${q}</span><button type="button" data-act="add" aria-label="Add one" ${q >= state.maxQty ? 'disabled title="Max per order"' : ''}>+</button></div>`;
+}
+
+$('menu').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const holder = btn.closest('[data-ctl]');
+  const name = holder.dataset.ctl;
+  const q = state.cart[name] || 0;
+  state.cart[name] = btn.dataset.act === 'add' ? Math.min(q + 1, state.maxQty) : Math.max(q - 1, 0);
+  if (!state.cart[name]) delete state.cart[name];
+  holder.innerHTML = controlHtml(name);
+  renderCart();
+});
+
+function cartLines() {
+  return Object.keys(state.cart).map(name => ({ name, qty: state.cart[name], price: state.prices[name] }));
+}
+
+function renderCart() {
+  const lines = cartLines();
+  const count = lines.reduce((s, l) => s + l.qty, 0);
+  const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  $('summary').innerHTML = lines.length
+    ? lines.map(l => `<div class="line"><span>${l.qty}× ${esc(l.name)}</span><span>${money(l.qty * l.price)}</span></div>`).join('')
+      + `<div class="line total"><span>Total</span><span>${money(total)}</span></div>`
+    : '<div class="empty">Nothing yet. Tap "Add" on something above.</div>';
+  $('barCount').textContent = count + (count === 1 ? ' item · View order' : ' items · View order');
+  $('barTotal').textContent = money(total);
+  updateBar();
+}
+
+function updateBar() {
+  const hasItems = Object.keys(state.cart).length > 0 && !$('order').hidden;
+  const formTop = $('checkout').getBoundingClientRect().top;
+  $('bar').classList.toggle('show', hasItems && formTop > window.innerHeight - 80);
+}
+window.addEventListener('scroll', updateBar, { passive: true });
+$('barBtn').addEventListener('click', () => $('checkout').scrollIntoView({ behavior: 'smooth' }));
+
+$('checkout').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('error');
+  err.textContent = '';
+  const items = cartLines().map(({ name, qty }) => ({ name, qty }));
+  const name = $('name').value.trim(), room = $('room').value.trim();
+  if (!items.length) { err.textContent = 'Add something to your order first.'; return; }
+  if (!name) { err.textContent = 'Please enter your name.'; $('name').focus(); return; }
+  if (!room) { err.textContent = 'Please enter your room.'; $('room').focus(); return; }
+  const email = $('email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email.'; $('email').focus(); return; }
+  unlockAudio();
+
+  const payment = (document.querySelector('input[name=pay]:checked') || {}).value;
+  const btn = $('submit');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const res = await call('placeOrder', { items, name, room, email, notes: $('notes').value.trim(), payment });
+    store.set('ed_name', name); store.set('ed_room', room); store.set('ed_email', email);
+    res.at = Date.now();
+    store.set('ed_active', JSON.stringify(res));
+    showConfirm(res);
+  } catch (ex) {
+    err.textContent = (ex && ex.message) || 'Something went wrong. Please try again.';
+    if (/sold out/i.test(err.textContent)) refreshMenu();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Place order';
+  }
+});
+
+$('again').addEventListener('click', () => {
+  stopTracking();
+  store.del('ed_active');
+  state.cart = {};
+  $('notes').value = '';
+  $('confirm').hidden = true;
+  if (state.closed) { $('closed').hidden = false; }
+  else if (state.items.length) { $('order').hidden = false; refreshMenu(); }
+  else { window.location.reload(); return; }
+  window.scrollTo(0, 0);
+});
+
+/* ---- live order status ---- */
+function loadActive() {
+  try {
+    const a = JSON.parse(store.get('ed_active') || 'null');
+    if (a && a.id && Date.now() - a.at < TRACK_HOURS * 3600e3) return a;
+  } catch (e) {}
+  store.del('ed_active');
+  return null;
+}
+
+function showConfirm(o) {
+  state.active = o;
+  $('loading').hidden = true; $('closed').hidden = true; $('order').hidden = true;
+  $('bar').classList.remove('show');
+  $('cNum').textContent = '#' + o.number;
+  $('cItems').textContent = o.items;
+  $('cTotal').textContent = 'Total: ' + money(o.total) + ' · ' + o.payment;
+  $('cPay').textContent = o.paymentNote;
+  setStage(o.stage || 'received', false);
+  $('confirm').hidden = false;
+  window.scrollTo(0, 0);
+  if (o.stage !== 'done') poll();
+}
+
+function setStage(stage, alert) {
+  const o = state.active;
+  o.stage = stage;
+  store.set('ed_active', JSON.stringify(o));
+  $('confirm').classList.toggle('is-ready', stage === 'ready');
+  document.querySelector('#confirm .warn').hidden = stage === 'done';
+  $('st2').classList.toggle('on', stage !== 'received');
+  $('st3').classList.toggle('on', stage === 'done');
+  ['st1', 'st2', 'st3'].forEach((id, i) => $(id).classList.toggle('now', ['received', 'ready', 'done'][i] === stage));
+  if (stage === 'received') {
+    $('cHead').textContent = 'Order received!';
+    $('cSub').innerHTML = o.email
+      ? `We'll email <b>${esc(o.email)}</b> when it's ready. This page updates on its own too.`
+      : 'This page updates on its own when your order is ready.';
+  } else if (stage === 'ready') {
+    $('cHead').textContent = 'Your order is ready!';
+    $('cSub').textContent = 'Come down to the basement to pick it up.';
+    document.title = 'Ready! · ' + TITLE;
+    if (alert) ping();
+  } else {
+    $('cHead').textContent = 'Enjoy!';
+    $('cSub').textContent = "Thanks for ordering from Ellie's.";
+    document.title = TITLE;
+  }
+}
+
+async function poll() {
+  clearTimeout(state.pollTimer);
+  const o = state.active;
+  if (!o || o.stage === 'done') return;
+  try {
+    const st = await call('getOrderStatus', o.id);
+    if (state.active !== o) return;
+    if (st && st.paid) { setStage('done', false); return; }
+    if (st && st.ready && o.stage !== 'ready') setStage('ready', true);
+  } catch (e) { /* try again next tick */ }
+  state.pollTimer = setTimeout(poll, POLL_MS);
+}
+
+function stopTracking() {
+  clearTimeout(state.pollTimer);
+  state.active = null;
+  document.title = TITLE;
+}
+
+// phones pause background tabs: catch up as soon as the page is visible again
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (state.active) poll();
+  else if (!$('order').hidden) refreshMenu();
+});
+
+// sound needs a tap first, so the "Place order" tap unlocks it
+function unlockAudio() {
+  try {
+    state.audio = state.audio || new (window.AudioContext || window.webkitAudioContext)();
+    state.audio.resume();
+  } catch (e) {}
+}
+
+function ping() {
+  try { navigator.vibrate && navigator.vibrate([250, 120, 250, 120, 400]); } catch (e) {}
+  try {
+    const ctx = state.audio;
+    if (!ctx) return;
+    [0, 0.22, 0.44].forEach((t, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.frequency.value = [660, 880, 1320][i];
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.2);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.22);
+    });
+  } catch (e) {}
+}
+
+init();
+</script>
+</body>
+</html>

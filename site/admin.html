@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ellie's Deli · Kitchen</title>
+<meta name="theme-color" content="#0f7a5f">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="brand.css">
+<style>
+  body { font-size: 14px; line-height: 1.35; }
+
+  /* top bar */
+  .top { position: sticky; top: 0; z-index: 5; background: var(--green); color: var(--white); }
+  .top-inner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px; }
+  .top .logo { font-size: 20px; white-space: nowrap; }
+  .views { display: inline-flex; background: rgba(255,255,255,.14); border-radius: 9px; padding: 2px; margin-right: auto; }
+  .views button { border: 0; background: none; color: var(--white); padding: 4px 12px; border-radius: 7px; font-weight: 700; cursor: pointer; }
+  .views button.on { background: var(--white); color: var(--green); }
+  .top input[type=date] { border: 0; border-radius: 8px; padding: 5px 8px; color: var(--ink); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-weight: 500; }
+  .switch { position: relative; flex: none; width: 38px; height: 22px; border-radius: 999px; background: rgba(255,255,255,.3); transition: background .15s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--white); transition: left .15s; }
+  .toggle input { position: absolute; opacity: 0; }
+  .toggle input:checked + .switch { background: #4cc78f; }
+  .toggle input:checked + .switch::after { left: 19px; }
+  .toggle input:focus-visible + .switch { outline: 2px solid var(--white); outline-offset: 2px; }
+  .linkbtn { color: var(--white); text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 4px 10px; font-weight: 500; white-space: nowrap; }
+  .linkbtn:hover { background: rgba(255,255,255,.12); }
+
+  /* stats + filters */
+  .sub { color: var(--ink); display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; padding: 8px 16px; background: var(--green-soft); border-bottom: 1px solid var(--green-line); }
+  .stat { white-space: nowrap; color: var(--muted); }
+  .stat b { color: var(--ink); font-size: 15px; }
+  .stat.owed b { color: var(--warn); }
+  .filters { display: flex; gap: 6px; align-items: center; margin-left: auto; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--green-line); border-radius: 8px; overflow: hidden; background: var(--white); }
+  .seg button { border: 0; background: none; padding: 4px 10px; cursor: pointer; font-weight: 500; }
+  .seg button.on { background: var(--green); color: var(--white); }
+  .search { border: 1px solid var(--green-line); border-radius: 8px; padding: 4px 10px; width: 150px; background: var(--white); }
+  .sort { border: 1px solid var(--green-line); border-radius: 8px; background: var(--white); padding: 4px 10px; cursor: pointer; font-weight: 500; }
+  .updated { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  /* order rows */
+  .list { padding: 0 0 40px; }
+  .row, .head {
+    display: grid; align-items: center; gap: 10px; padding: 5px 16px;
+    grid-template-columns: 38px 62px minmax(110px, 160px) 70px minmax(0, 1fr) minmax(0, 220px) 62px 50px 42px 56px;
+  }
+  .head { position: sticky; top: var(--top-h, 48px); z-index: 4; background: var(--white); color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--green-line); padding-top: 6px; padding-bottom: 6px; }
+  .head .c { text-align: center; }
+  .row { border-bottom: 1px solid var(--green-line); min-height: 34px; }
+  .row:nth-child(even) { background: #fafcfb; }
+  .row.paid { background: var(--green-soft); }
+  .row.ready { box-shadow: inset 4px 0 0 var(--green); }
+  .row.paid.ready { opacity: .5; box-shadow: none; }
+  .row.fresh { animation: flash 2.5s ease-out; }
+  @keyframes flash { from { background: #c4ecdc; } }
+  .sent { font-size: 12px; color: var(--green); margin-left: 3px; }
+  .num { font-weight: 700; color: var(--green); font-size: 15px; }
+  .time, .pay { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .room { white-space: nowrap; }
+  .items { font-weight: 500; }
+  .notes { color: var(--warn); font-size: 13px; }
+  .amt { font-weight: 700; text-align: right; white-space: nowrap; }
+  .c { display: flex; justify-content: center; }
+  .c input { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; margin: 0; }
+  .m-label { display: none; }
+
+  /* menu tab */
+  .menu-view { max-width: 640px; margin: 0 auto; padding: 8px 16px 48px; }
+  .menu-view .hint { color: var(--muted); margin: 10px 0 4px; }
+  .menu-view h2 { font: 700 18px/1.2 var(--display); letter-spacing: .04em; color: var(--green); margin: 22px 0 4px; }
+  .mi { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--green-line); }
+  .mi .n { flex: 1; font-weight: 700; font-size: 15px; }
+  .mi .p { color: var(--muted); width: 48px; text-align: right; }
+  .mi.off .n { color: #9aa9a3; text-decoration: line-through; }
+  .avail { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; min-width: 118px; justify-content: flex-end; font-weight: 500; }
+  .avail input { position: absolute; opacity: 0; }
+  .avail .switch { background: #c9d3cf; }
+  .avail input:checked + .switch { background: var(--green); }
+  .avail input:checked + .switch::after { left: 19px; }
+  .avail input:focus-visible + .switch { outline: 2px solid var(--green); outline-offset: 2px; }
+  .avail .lbl { width: 66px; color: var(--green); }
+  .mi.off .avail .lbl { color: var(--danger); }
+
+  .empty, .msg { text-align: center; color: var(--muted); padding: 48px 16px; }
+  .error-bar { background: #fdecea; color: var(--danger); padding: 6px 16px; font-weight: 500; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; transition: .2s;
+    background: var(--ink); color: var(--white); padding: 10px 16px; border-radius: 10px; font-weight: 500; z-index: 10;
+    max-width: calc(100% - 32px); pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* PIN screen */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--green); }
+  .login form { width: 100%; max-width: 320px; text-align: center; }
+  .login .plaque { margin-bottom: 18px; }
+  .login .plaque .logo { font-size: 34px; }
+  .login .box { background: var(--white); border-radius: 16px; padding: 22px 20px; }
+  .login p { color: var(--muted); margin: 0 0 14px; font-weight: 500; }
+  .login input { width: 100%; text-align: center; font-size: 22px; letter-spacing: .3em; border: 1.5px solid var(--green-line); border-radius: 10px; padding: 10px; }
+  .login input:focus { outline: none; border-color: var(--green); }
+  .login button { width: 100%; margin-top: 12px; height: 46px; border: 0; border-radius: 10px; background: var(--green); color: var(--white); font-weight: 700; font-size: 16px; cursor: pointer; }
+  .login .err { color: var(--danger); min-height: 1.4em; margin-top: 10px; }
+
+  /* phones: each order becomes a compact 2–3 line block */
+  @media (max-width: 760px) {
+    .head { display: none; }
+    .top .logo { display: none; }
+    .row {
+      grid-template-columns: auto auto 1fr auto;
+      grid-template-areas: "num who who amt" "items items items items" "notes notes notes notes" "time pay chk chk";
+      gap: 2px 8px; padding: 8px 16px;
+    }
+    .num { grid-area: num; } .who { grid-area: who; } .amt { grid-area: amt; }
+    .room { display: none; } .who .m-room { display: inline; }
+    .items { grid-area: items; } .notes { grid-area: notes; }
+    .time { grid-area: time; } .pay { grid-area: pay; }
+    .checks { grid-area: chk; display: flex; justify-content: flex-end; gap: 14px; }
+    .checks .c { gap: 4px; align-items: center; }
+    .m-label { display: inline; font-size: 12px; color: var(--muted); }
+    .search { width: 100%; }
+    .filters { margin-left: 0; width: 100%; }
+  }
+  @media (min-width: 761px) {
+    .checks { display: contents; }
+    .who .m-room { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="login" id="login">
+  <form id="loginForm">
+    <div class="plaque">
+      <div class="logo" role="img" aria-label="Ellie's Deli">
+        <div class="ln" aria-hidden="true">ELL<i class="paddle"></i>E’S</div>
+        <div class="ln" aria-hidden="true">DEL<i class="paddle"></i></div>
+      </div>
+    </div>
+    <div class="box">
+      <p>Kitchen login</p>
+      <input type="password" id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="Admin PIN">
+      <button type="submit">Open kitchen</button>
+      <div class="err" id="loginErr" role="alert"></div>
+    </div>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <div class="top" id="top">
+    <div class="top-inner">
+      <span class="logo" aria-label="Ellie's Deli"><span aria-hidden="true">ELL<i class="paddle"></i>E’S DEL<i class="paddle"></i></span></span>
+      <div class="views" id="views">
+        <button type="button" data-v="orders" class="on">Orders</button>
+        <button type="button" data-v="menu">Menu</button>
+      </div>
+      <input type="date" id="night" aria-label="Night">
+      <label class="toggle" title="Turn online ordering on or off">
+        <input type="checkbox" id="openToggle"><span class="switch"></span><span id="openLabel">Taking orders</span>
+      </label>
+      <a class="linkbtn" id="sheetLink" href="#" target="_blank" rel="noopener">Sheet ↗</a>
+    </div>
+    <div class="sub" id="ordersBar">
+      <span class="stat">Orders <b id="sOrders">0</b></span>
+      <span class="stat">Sandwiches <b id="sSand">0</b></span>
+      <span class="stat">Revenue <b id="sRev">$0</b></span>
+      <span class="stat">Collected <b id="sPaid">$0</b></span>
+      <span class="stat owed">Owed <b id="sOwed">$0</b></span>
+      <div class="filters">
+        <div class="seg" id="filter">
+          <button type="button" data-f="all" class="on">All</button>
+          <button type="button" data-f="unpaid">Unpaid</button>
+          <button type="button" data-f="todo">To make</button>
+        </div>
+        <button type="button" class="sort" id="sort" title="Change order">Oldest first</button>
+        <input class="search" id="search" type="search" placeholder="Search name, room…">
+        <span class="updated" id="updated"></span>
+      </div>
+    </div>
+  </div>
+  <div class="error-bar" id="errBar" hidden></div>
+
+  <div id="ordersView">
+    <div class="head" id="head">
+      <span>#</span><span>Time</span><span>Name</span><span>Room</span><span>Items</span><span>Notes</span>
+      <span style="text-align:right">Total</span><span>Pay</span><span class="c">Paid</span><span class="c" title="Ticking Ready emails the customer">Ready</span>
+    </div>
+    <div class="list" id="list"><div class="msg">Loading…</div></div>
+  </div>
+
+  <div class="menu-view" id="menuView" hidden>
+    <p class="hint">Ran out of something? Switch it off and customers see it as <b>Sold out</b> right away.</p>
+    <div id="menuList"><div class="msg">Loading…</div></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+/* ---- demo backend (used only while config.js has no API link) ---- */
+window.DEMO = (() => {
+  const names = ['Liam O.', 'Grace K.', 'Matt D.', 'Sofia R.', 'Jack M.', 'Ava P.', 'Ben T.', 'Chloe W.', 'Noah S.', 'Ella H.', 'Ryan B.', 'Mia L.'];
+  const menu = [['The Classic', 1], ['The Porky', 2], ['The Piggy', 2], ['The Hammy', 2], ['The Jack', 2], ['The Deece', 3], ['The Frad', 3], ['The Kitchen Sink', 4], ['The Nutellie', 1], ['The Duke', 2]];
+  const drinks = [['Soda', 1], ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]];
+  const avail = {};
+  menu.concat(drinks).forEach(([n]) => { avail[n] = n !== 'The Duke'; });
+  const notes = ['', '', 'no cheese', '', 'cut in half', '', '', 'picking up at 11:30', ''];
+  const orders = names.map((n, i) => {
+    const picks = [menu[i % 10], menu[(i * 3 + 1) % 10]];
+    const qty = [1 + (i % 2), 1];
+    const total = picks[0][1] * qty[0] + picks[1][1] * qty[1];
+    return { id: '20261011-' + (i + 1), number: i + 1, time: (9 + Math.floor(i / 4)) + ':' + String((i * 13) % 60).padStart(2, '0') + ' PM',
+      name: n, room: String(100 + i * 17), email: n.split(' ')[0].toLowerCase() + '@nd.edu', items: `${qty[0]}× ${picks[0][0]}, ${qty[1]}× ${picks[1][0]}`,
+      sandwiches: qty[0] + qty[1], total, payment: i % 3 ? 'Card' : 'Cash',
+      notes: notes[i % notes.length], paid: i < 3, ready: i < 5, notified: i < 5 };
+  });
+  let open = true;
+  return {
+    checkPin: async (p) => { if (p !== '1234') throw new Error('Wrong PIN (demo PIN is 1234)'); return true; },
+    getOrders: async (pin, night) => ({ night: night || '2026-10-11', open, orders: JSON.parse(JSON.stringify(orders)) }),
+    setOrderFlag: async (pin, id, field, v) => {
+      const o = orders.find(x => x.id === id);
+      o[field] = v;
+      const emailed = field === 'ready' && v && !o.notified;
+      if (emailed) o.notified = true;
+      return { emailed, emailError: null };
+    },
+    setOpen: async (pin, v) => (open = v),
+    getSheetUrl: async () => 'https://docs.google.com/spreadsheets/',
+    getAdminMenu: async () => menu.map(([name, price]) => ({ name, price, category: 'Sandwiches', available: avail[name] }))
+      .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] }))),
+    setItemAvailable: async (pin, name, v) => (avail[name] = v),
+  };
+})();
+
+/* ---- state ---- */
+const store = storage('sessionStorage');
+const S = { pin: '', night: '', orders: [], seen: null, filter: 'all', newestFirst: false, pending: {}, timer: null, view: 'orders', menu: [] };
+
+/* ---- login ---- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await login($('pin').value.trim());
+});
+
+async function login(pin) {
+  $('loginErr').textContent = '';
+  try {
+    await call('checkPin', pin);
+  } catch (err) {
+    $('loginErr').textContent = err.message || 'Wrong PIN';
+    store.del('ed_pin');
+    return;
+  }
+  S.pin = pin;
+  store.set('ed_pin', pin);
+  $('login').hidden = true;
+  $('app').hidden = false;
+  syncHeadOffset();
+  call('getSheetUrl', pin).then(url => { $('sheetLink').href = url; }).catch(() => {});
+  await load();
+  S.timer = setInterval(() => { if (S.view === 'orders') load(); }, 15000);
+}
+
+/* ---- orders ---- */
+async function load() {
+  try {
+    const data = await call('getOrders', S.pin, S.night);
+    S.night = data.night;
+    $('night').value = data.night;
+    setOpenUi(data.open);
+    // keep checkbox changes that are still being saved
+    data.orders.forEach(o => {
+      ['paid', 'ready'].forEach(f => { const k = o.id + f; if (k in S.pending) o[f] = S.pending[k]; });
+    });
+    const fresh = S.seen ? data.orders.filter(o => !S.seen.has(o.id)).map(o => o.id) : [];
+    S.seen = new Set(data.orders.map(o => o.id));
+    S.orders = data.orders;
+    render(new Set(fresh));
+    $('errBar').hidden = true;
+    $('updated').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  } catch (err) {
+    showError("Couldn't refresh: " + err.message);
+  }
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showError(msg) { $('errBar').textContent = msg; $('errBar').hidden = false; }
+
+function setOpenUi(open) {
+  $('openToggle').checked = open;
+  $('openLabel').textContent = open ? 'Taking orders' : 'Ordering closed';
+}
+
+function render(fresh) {
+  fresh = fresh || new Set();
+  const all = S.orders;
+  const rev = all.reduce((s, o) => s + o.total, 0);
+  const paid = all.filter(o => o.paid).reduce((s, o) => s + o.total, 0);
+  $('sOrders').textContent = all.length;
+  $('sSand').textContent = all.reduce((s, o) => s + o.sandwiches, 0);
+  $('sRev').textContent = money(rev);
+  $('sPaid').textContent = money(paid);
+  $('sOwed').textContent = money(rev - paid);
+
+  const q = $('search').value.trim().toLowerCase();
+  const rows = all.filter(o =>
+    (S.filter === 'all' || (S.filter === 'unpaid' && !o.paid) || (S.filter === 'todo' && !o.ready)) &&
+    (!q || [o.name, o.room, o.email, o.items, o.notes, '#' + o.number].join(' ').toLowerCase().includes(q)));
+  rows.sort((a, b) => S.newestFirst ? b.number - a.number : a.number - b.number);
+
+  if (!rows.length) {
+    $('list').innerHTML = `<div class="empty">${all.length ? 'No orders match.' : 'No orders yet for this night.'}</div>`;
+    return;
+  }
+  $('list').innerHTML = rows.map(o => `
+    <div class="row${o.paid ? ' paid' : ''}${o.ready ? ' ready' : ''}${fresh.has(o.id) ? ' fresh' : ''}" data-id="${esc(o.id)}">
+      <span class="num">#${o.number}</span>
+      <span class="time">${esc(o.time)}</span>
+      <span class="who" title="${esc(o.name)} · ${esc(o.email)}">${esc(o.name)}<span class="m-room"> · ${esc(o.room)}</span></span>
+      <span class="room">${esc(o.room)}</span>
+      <span class="items">${esc(o.items)}</span>
+      <span class="notes">${esc(o.notes)}</span>
+      <span class="amt">${money(o.total)}</span>
+      <span class="pay">${esc(o.payment)}</span>
+      <span class="checks">
+        <label class="c"><input type="checkbox" data-f="paid" ${o.paid ? 'checked' : ''} aria-label="Paid, order ${o.number}"><span class="m-label">Paid</span></label>
+        <label class="c" title="${o.notified ? 'Ready email sent' : 'Tick to email the customer'}"><input type="checkbox" data-f="ready" ${o.ready ? 'checked' : ''} aria-label="Ready, order ${o.number}"><span class="m-label">Ready</span>${o.notified ? '<span class="sent" aria-label="email sent">✉</span>' : ''}</label>
+      </span>
+    </div>`).join('');
+}
+
+$('list').addEventListener('change', async (e) => {
+  const box = e.target.closest('input[data-f]');
+  if (!box) return;
+  const id = box.closest('.row').dataset.id;
+  const field = box.dataset.f;
+  const value = box.checked;
+  const order = S.orders.find(o => o.id === id);
+  const key = id + field;
+  order[field] = value;
+  S.pending[key] = value;
+  box.closest('.row').classList.toggle(field, value);
+  try {
+    const res = await call('setOrderFlag', S.pin, id, field, value);
+    if (res && res.emailed) {
+      order.notified = true;
+      toast(`Emailed ${order.name}: #${order.number} is ready`);
+      render();
+    }
+    if (res && res.emailError) showError(`#${order.number} is marked ready, but the email didn't send: ${res.emailError}`);
+  } catch (err) {
+    order[field] = !value;
+    showError("Couldn't save #" + order.number + ': ' + err.message);
+    render();
+  } finally {
+    if (S.pending[key] === value) delete S.pending[key];
+  }
+  if (S.filter !== 'all') render();
+});
+
+$('filter').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-f]');
+  if (!b) return;
+  S.filter = b.dataset.f;
+  [...$('filter').children].forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+$('sort').addEventListener('click', () => {
+  S.newestFirst = !S.newestFirst;
+  $('sort').textContent = S.newestFirst ? 'Newest first' : 'Oldest first';
+  render();
+});
+$('search').addEventListener('input', () => render());
+$('night').addEventListener('change', () => {
+  S.night = $('night').value;
+  S.seen = null;
+  $('list').innerHTML = '<div class="msg">Loading…</div>';
+  load();
+});
+$('openToggle').addEventListener('change', async (e) => {
+  const want = e.target.checked;
+  setOpenUi(want);
+  try { setOpenUi(await call('setOpen', S.pin, want)); }
+  catch (err) { setOpenUi(!want); showError("Couldn't change ordering: " + err.message); }
+});
+
+/* ---- menu tab: sold out / available ---- */
+$('views').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b || b.dataset.v === S.view) return;
+  S.view = b.dataset.v;
+  [...$('views').children].forEach(x => x.classList.toggle('on', x === b));
+  const isMenu = S.view === 'menu';
+  $('menuView').hidden = !isMenu;
+  $('ordersView').hidden = isMenu;
+  $('ordersBar').hidden = isMenu;
+  $('night').hidden = isMenu;
+  syncHeadOffset();
+  if (isMenu) loadMenu(); else load();
+});
+
+async function loadMenu() {
+  try {
+    S.menu = await call('getAdminMenu', S.pin);
+    renderMenu();
+    $('errBar').hidden = true;
+  } catch (err) {
+    showError("Couldn't load the menu: " + err.message);
+  }
+}
+
+function renderMenu() {
+  const cats = [];
+  S.menu.forEach(i => { if (!cats.includes(i.category)) cats.push(i.category); });
+  $('menuList').innerHTML = cats.map(c => `<h2>${esc(c)}</h2>` + S.menu
+    .filter(i => i.category === c)
+    .map(i => `<div class="mi${i.available ? '' : ' off'}">
+        <span class="n">${esc(i.name)}</span>
+        <span class="p">${money(i.price)}</span>
+        <label class="avail">
+          <input type="checkbox" data-item="${esc(i.name)}" ${i.available ? 'checked' : ''} aria-label="${esc(i.name)} available">
+          <span class="switch"></span><span class="lbl">${i.available ? 'Available' : 'Sold out'}</span>
+        </label>
+      </div>`).join('')).join('');
+}
+
+$('menuList').addEventListener('change', async (e) => {
+  const box = e.target.closest('input[data-item]');
+  if (!box) return;
+  const item = S.menu.find(i => i.name === box.dataset.item);
+  const want = box.checked;
+  item.available = want;
+  renderMenu();
+  try {
+    await call('setItemAvailable', S.pin, item.name, want);
+    toast(want ? `${item.name} is back on the menu` : `${item.name} marked sold out`);
+  } catch (err) {
+    item.available = !want;
+    renderMenu();
+    showError(`Couldn't update ${item.name}: ${err.message}`);
+  }
+});
+
+function syncHeadOffset() {
+  document.documentElement.style.setProperty('--top-h', $('top').offsetHeight + 'px');
+}
+window.addEventListener('resize', syncHeadOffset);
+
+const savedPin = store.get('ed_pin');
+if (savedPin) login(savedPin);
+</script>
+</body>
+</html>
