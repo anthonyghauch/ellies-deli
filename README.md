@@ -69,6 +69,7 @@ Tip: if the QR code points at your own domain, you can move the site later witho
 - **Orders tab**: one compact row per order, oldest first. It refreshes every 15 seconds, and new orders flash.
   - **Ready**: tick it when the order is made. The customer gets an email (✉ shows once it's sent, and only one is sent per order), and their order page switches to "Your order is ready!" with a chime.
   - **Paid**: tick it when they pay at pickup. The stats bar shows Collected and Owed.
+  - **Done tab**: once an order is both Paid and Ready it moves from Orders to **Done**, so the Orders tab only shows what still needs doing. Untick a box in Done to send it back.
   - The **Unpaid** and **To make** filters, search, and the date picker let you look back at past nights.
 - **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names and ingredients are edited in the **Menu** tab of the spreadsheet.
 - **Delete an order** (trash icon at the end of its row): for cancelled or test orders. It asks first, then removes the order from the spreadsheet for good. If the customer still has their order page open, it switches to "Order cancelled".
