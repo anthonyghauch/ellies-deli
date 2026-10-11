@@ -36,7 +36,9 @@ Open `site/index.html` or `site/admin.html` straight from your computer to try t
 
 After changing `Code.gs` later, publish it with **Deploy**, then **Manage deployments**, then the edit icon, then **Version: New version**. This keeps the same URL.
 
-A school Google account (like Notre Dame's) may block "Anyone" access or limit outside email. If it does, use a personal Gmail account for the Apps Script.
+**How it's set up today:** the Apps Script runs on the Notre Dame account (aghauch@nd.edu), so "order ready" emails come from that address, whichever admin ticks Ready. The spreadsheet lives in the personal Gmail Drive and is shared (Editor) with the ND account. The script finds it through the `SPREADSHEET_ID` script property.
+
+**Before graduating** (ND accounts get closed): create the Apps Script project again on a personal account, paste `backend/Code.gs`, and set the `SPREADSHEET_ID` and `ADMIN_PIN` script properties. Then run `setup` (it reuses the existing sheet), deploy, and put the new `/exec` link in `site/config.js`. The spreadsheet doesn't move.
 
 ## 2. Website on GitHub Pages
 
