@@ -203,6 +203,7 @@ function placeOrder(order) {
       deals: deal.count, items: itemsText, payment: payment, email: email, paymentNote: CONFIG.PAYMENT_NOTE,
       cancelKey: cancelKey_(id) };
     if (requestId) cache.put('req_' + requestId, JSON.stringify(result), 21600);
+    forgetSnapshot_(id);
     return result;
   } finally {
     lock.releaseLock();
@@ -216,16 +217,45 @@ function placeOrder(order) {
 function getOrderStatus(id) {
   id = String(id || '');
   if (!/^\d{8}-\d+$/.test(id)) return null;
+  const nightKey = id.split('-')[0];
+  let snap = nightSnapshot_(nightKey, false);
+  if (!snap[id]) {
+    // Not in the cached snapshot: double-check the sheet before saying "gone"
+    // (the snapshot may predate this order).
+    snap = nightSnapshot_(nightKey, true);
+    if (!snap[id]) return null;
+  }
+  const mine = Number(id.split('-')[1]);
+  // "ahead" = tonight's earlier orders that aren't ready yet
+  const ahead = Object.keys(snap).filter(k => Number(k.split('-')[1]) < mine && !snap[k][1]).length;
+  return { paid: snap[id][0], ready: snap[id][1], ahead: ahead };
+}
+
+/**
+ * One night's orders as {id: [paid, ready]}, cached for a few seconds and shared by
+ * every customer page that's polling, so many phones cost one sheet read.
+ */
+function nightSnapshot_(nightKey, fresh) {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('st_' + id);
-  if (hit) return JSON.parse(hit);
+  if (!fresh) {
+    const hit = cache.get('snap_' + nightKey);
+    if (hit) return JSON.parse(hit);
+  }
   const sh = getSpreadsheet_().getSheetByName('Orders');
-  const cell = findOrder_(sh, id);
-  if (!cell) return null;
-  const v = sh.getRange(cell.getRow(), COL.PAID, 1, 2).getValues()[0];
-  const status = { paid: v[0] === true, ready: v[1] === true };
-  cache.put('st_' + id, JSON.stringify(status), 30);
-  return status;
+  const last = sh.getLastRow();
+  const snap = {};
+  if (last >= 2) {
+    sh.getRange(2, 1, last - 1, COL.READY).getValues().forEach(r => {
+      const oid = String(r[0]);
+      if (oid.indexOf(nightKey + '-') === 0) snap[oid] = [r[COL.PAID - 1] === true, r[COL.READY - 1] === true];
+    });
+  }
+  cache.put('snap_' + nightKey, JSON.stringify(snap), 10);
+  return snap;
+}
+
+function forgetSnapshot_(id) {
+  CacheService.getScriptCache().remove('snap_' + String(id).split('-')[0]);
 }
 
 /**
@@ -308,8 +338,7 @@ function setOrderFlag(pin, id, field, value) {
   } finally {
     lock.releaseLock();
   }
-  CacheService.getScriptCache().put('st_' + id,
-    JSON.stringify({ paid: r[COL.PAID - 1] === true, ready: r[COL.READY - 1] === true }), 30);
+  forgetSnapshot_(id);
 
   const result = { emailed: false, emailError: null };
   if (field === 'ready' && value && CONFIG.READY_EMAIL && !r[COL.NOTIFIED - 1]) {
@@ -578,7 +607,7 @@ function removeOrder_(ss, id) {
       if (String(ids[i][0]) === id) items.deleteRow(i + 2);
     }
   }
-  CacheService.getScriptCache().remove('st_' + id);
+  forgetSnapshot_(id);
 }
 
 /** Private per-order key (HMAC of the order id), so only the person who ordered can cancel. */
