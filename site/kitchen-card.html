@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ellie's Deli · Kitchen Card</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="brand.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  body { background: #e6ece9; font-size: 14px; line-height: 1.4; }
+
+  /* on-screen controls (not printed) */
+  .controls {
+    max-width: 8.5in; margin: 16px auto; padding: 14px 16px; background: var(--white); border-radius: 12px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .controls label { font-weight: 700; width: 100%; }
+  .controls input { flex: 1; min-width: 220px; padding: 10px 12px; border: 1.5px solid var(--green-line); border-radius: 8px; }
+  .controls input:focus { outline: none; border-color: var(--green); }
+  .controls button { padding: 10px 18px; border: 0; border-radius: 8px; background: var(--green); color: var(--white); font-weight: 700; cursor: pointer; }
+  .controls small { width: 100%; color: var(--muted); }
+
+  /* one US Letter page */
+  .page {
+    width: 8.5in; height: 11in; margin: 0 auto 24px; background: var(--white); overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  }
+  .top { background: var(--green); padding: .35in .5in .3in; }
+  .top .plaque { padding: .2in .2in .18in; border-width: 3px; }
+  .top .plaque .logo { font-size: 54px; }
+  .top .plaque .ln + .ln { margin-top: 10px; }
+  .badge {
+    display: inline-block; margin-top: 14px; padding: 6px 16px; border-radius: 999px;
+    background: var(--tan); color: var(--green-dark); font: 700 16px/1 var(--body); letter-spacing: .14em;
+  }
+
+  .scan { display: flex; align-items: center; gap: .45in; padding: .35in .6in .25in; }
+  .qr {
+    flex: none; width: 3in; height: 3in; padding: .17in; border: 4px solid var(--green); border-radius: 20px;
+    display: grid; place-items: center; background: var(--white);
+  }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .qr .empty { color: var(--muted); text-align: center; font-size: 15px; }
+  .cta h2 { font: 700 34px/1.1 var(--display); letter-spacing: .03em; color: var(--green); margin: 0 0 10px; }
+  .cta p { margin: 0; font-size: 17px; }
+  .cta .url { margin-top: 14px; font-size: 15px; font-weight: 700; color: var(--green); }
+  .cta .url .nw { white-space: nowrap; }
+
+  .steps { flex: 1; margin: 0 .6in; border-top: 2px solid var(--green-line); padding-top: .2in; }
+  .steps h3 { font: 700 22px/1 var(--display); letter-spacing: .04em; color: var(--green); margin: 0 0 12px; }
+  .steps ol { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 11px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; font-size: 16px; }
+  .steps li::before {
+    content: counter(s); width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: var(--white);
+    display: grid; place-items: center; font-weight: 700; font-size: 15px;
+  }
+  .steps b { color: var(--green-dark); }
+  .steps small { display: block; color: var(--muted); font-size: 13.5px; }
+
+  .foot { background: var(--green); color: var(--tan); text-align: center; padding: .15in; font-size: 14px; font-weight: 700; letter-spacing: .06em; }
+
+  @media print {
+    @page { size: letter; margin: 0; }
+    body { background: var(--white); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .controls, .demo-bar { display: none; }
+    .page { margin: 0; box-shadow: none; }
+  }
+  @media screen and (max-width: 8.6in) {
+    .page { zoom: .5; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <label for="url">Link to the kitchen page</label>
+  <input id="url" type="url" placeholder="https://anthonyghauch.github.io/ellies-deli/admin.html">
+  <button type="button" onclick="window.print()">Print kitchen card</button>
+  <small>For staff only: keep it in the kitchen, don't post it. The PIN is never printed on it.</small>
+</div>
+
+<div class="page">
+  <div class="top">
+    <div class="plaque">
+      <div class="logo" role="img" aria-label="Ellie's Deli">
+        <div class="ln" aria-hidden="true">ELL<i class="paddle"></i>E’S</div>
+        <div class="ln" aria-hidden="true">DEL<i class="paddle"></i></div>
+      </div>
+      <div class="badge">KITCHEN · STAFF ONLY</div>
+    </div>
+  </div>
+
+  <div class="scan">
+    <div class="qr" id="qr"><div class="empty">Paste the kitchen link above<br>to make the QR code</div></div>
+    <div class="cta">
+      <h2>Scan to open the kitchen</h2>
+      <p>Then enter the kitchen PIN.<br>Ask the manager if you don't have it.</p>
+      <div class="url" id="urlText"></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <h3>Running a night</h3>
+    <ol>
+      <li><span><b>Opening:</b> switch <b>Taking orders</b> on (top of the page).<small>Turn it off when the kitchen closes. Customers then see “Kitchen's closed”.</small></span></li>
+      <li><span><b>New orders</b> show up on their own, oldest first, one line each.<small>The page refreshes every 15 seconds and new orders flash green.</small></span></li>
+      <li><span><b>Made it?</b> Tick <b>Ready</b>.<small>The customer gets an email and their phone shows “Your order is ready!”.</small></span></li>
+      <li><span><b>They paid?</b> Tick <b>Paid</b> (card or cash).<small>The bar at the top shows what's collected and what's still owed.</small></span></li>
+      <li><span><b>Ran out of something?</b> Open the <b>Menu</b> tab and switch it to <b>Sold out</b>.<small>Customers see it greyed out right away. Switch it back when it's restocked.</small></span></li>
+      <li><span><b>Looking for an order?</b> Use <b>Unpaid</b>, <b>To make</b>, or search by name or room.<small>Every order is also saved in the Google Sheet (Sheet ↗ button).</small></span></li>
+    </ol>
+  </div>
+
+  <div class="foot">FOR THE KITCHEN — PLEASE DON'T POST THIS ONE</div>
+</div>
+
+<script>
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const input = document.getElementById('url');
+
+function draw() {
+  const url = input.value.trim();
+  const box = document.getElementById('qr');
+  const shown = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  document.getElementById('urlText').innerHTML = shown && shown.length <= 46 ? '<span class="nw">' + esc(shown) + '</span>' : '';
+  if (!url) { box.innerHTML = '<div class="empty">Paste the kitchen link above<br>to make the QR code</div>'; return; }
+  if (typeof qrcode === 'undefined') { box.innerHTML = '<div class="empty">Connect to the internet to make the QR code</div>'; return; }
+  const qr = qrcode(0, 'Q');
+  qr.addData(url);
+  qr.make();
+  box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 0, scalable: true }).replace(/fill="black"/g, 'fill="#0a3d30"');
+}
+
+// Default: ?url=…, otherwise this site's own admin page when hosted
+const home = /^https?:$/.test(location.protocol) ? location.origin + location.pathname.replace(/kitchen-card\.html$/, '') + 'admin.html' : '';
+input.value = new URLSearchParams(location.search).get('url') || home;
+input.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>
