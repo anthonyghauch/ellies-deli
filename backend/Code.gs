@@ -83,6 +83,18 @@ function setup() {
   return ss.getUrl();
 }
 
+/** Run from the editor to check which address the "order ready" emails come from. */
+function sendTestEmail() {
+  const me = Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail({
+    to: me,
+    subject: CONFIG.NAME + ' test email',
+    body: 'It works! "Your order is ready" emails will be sent from ' + me + '.',
+    name: CONFIG.NAME,
+  });
+  Logger.log('Test email sent to ' + me);
+}
+
 /* ---------------------------------------------------------- customer calls */
 
 function getMenu() {
@@ -144,13 +156,22 @@ function placeOrder(order) {
     const now = new Date();
     const night = serviceNight_(now);
     const nightKey = fmt_(night, 'yyyyMMdd');
-    const props = PropertiesService.getScriptProperties();
-    const number = Number(props.getProperty('SEQ_' + nightKey) || 0) + 1;
-    props.setProperty('SEQ_' + nightKey, String(number));
-    const id = nightKey + '-' + number;
-
     const orders = ss.getSheetByName('Orders');
     const row = orders.getLastRow() + 1;
+
+    // Tonight's next number: the higher of our counter and what's already in the sheet,
+    // so numbering keeps going if the script is ever moved to another Google account.
+    const props = PropertiesService.getScriptProperties();
+    let maxSoFar = Number(props.getProperty('SEQ_' + nightKey) || 0);
+    if (row > 2) {
+      orders.getRange(2, 1, row - 2, 1).getValues().forEach(([v]) => {
+        const s = String(v);
+        if (s.indexOf(nightKey + '-') === 0) maxSoFar = Math.max(maxSoFar, Number(s.split('-')[1]) || 0);
+      });
+    }
+    const number = maxSoFar + 1;
+    props.setProperty('SEQ_' + nightKey, String(number));
+    const id = nightKey + '-' + number;
     orders.getRange(row, 1, 1, ORDER_HEADERS.length).setValues([[
       id, now, night, safe_(name), safe_(room), email, itemsText,
       sandwiches, total, payment, safe_(notes), false, false, '',
@@ -312,7 +333,13 @@ function getSpreadsheet_() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('SPREADSHEET_ID');
   if (id) {
-    try { return SpreadsheetApp.openById(id); } catch (err) { /* deleted — rebuild below */ }
+    try {
+      return SpreadsheetApp.openById(id);
+    } catch (err) {
+      // Never quietly start a second spreadsheet: that would split the order history.
+      throw new Error("Can't open the orders spreadsheet. Share it with " + Session.getEffectiveUser().getEmail() +
+        ' (Editor), or delete SPREADSHEET_ID in Script properties to create a new one.');
+    }
   }
   const ss = SpreadsheetApp.create(CONFIG.SPREADSHEET_NAME);
   ss.setSpreadsheetTimeZone(Session.getScriptTimeZone());
