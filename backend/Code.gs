@@ -62,9 +62,9 @@ const SEED_MENU = [
 
 // Everything the website is allowed to call.
 const API = {
-  getMenu, placeOrder, getOrderStatus,
+  getMenu, placeOrder, getOrderStatus, cancelOrder,
   checkPin, getOrders, setOrderFlag, setOpen, getSheetUrl, getAdminMenu, setItemAvailable,
-  getDeal, setDeal,
+  getDeal, setDeal, deleteOrder,
 };
 
 /** The website sends POST {fn, args} as plain text (no CORS preflight) and gets JSON back. */
@@ -200,7 +200,8 @@ function placeOrder(order) {
 
     SpreadsheetApp.flush();
     const result = { id: id, number: number, total: total, subtotal: subtotal, discount: deal.discount,
-      deals: deal.count, items: itemsText, payment: payment, email: email, paymentNote: CONFIG.PAYMENT_NOTE };
+      deals: deal.count, items: itemsText, payment: payment, email: email, paymentNote: CONFIG.PAYMENT_NOTE,
+      cancelKey: cancelKey_(id) };
     if (requestId) cache.put('req_' + requestId, JSON.stringify(result), 21600);
     return result;
   } finally {
@@ -208,7 +209,10 @@ function placeOrder(order) {
   }
 }
 
-/** Polled by the customer's order page. Only reveals ready / paid, nothing personal. */
+/**
+ * Polled by the customer's order page. Only reveals ready / paid, nothing personal.
+ * Returns null when the order no longer exists (an admin deleted it), so the page can say "cancelled".
+ */
 function getOrderStatus(id) {
   id = String(id || '');
   if (!/^\d{8}-\d+$/.test(id)) return null;
@@ -222,6 +226,34 @@ function getOrderStatus(id) {
   const status = { paid: v[0] === true, ready: v[1] === true };
   cache.put('st_' + id, JSON.stringify(status), 30);
   return status;
+}
+
+/**
+ * The customer cancels their own order. Needs the private cancelKey placeOrder returned
+ * (so nobody can cancel someone else's order by guessing numbers), and only works until
+ * the kitchen ticks Ready (or Paid).
+ */
+function cancelOrder(id, key) {
+  id = String(id || '');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (!/^\d{8}-\d+$/.test(id) || !key || String(key) !== cancelKey_(id)) {
+      throw new Error("This order can't be cancelled from here. Please ask the kitchen.");
+    }
+    const ss = getSpreadsheet_();
+    const orders = ss.getSheetByName('Orders');
+    const cell = findOrder_(orders, id);
+    if (!cell) return true;  // already gone
+    const v = orders.getRange(cell.getRow(), COL.PAID, 1, 2).getValues()[0];
+    if (v[0] === true || v[1] === true) {
+      throw new Error('Too late to cancel: your order is already ready. Come pick it up!');
+    }
+    removeOrder_(ss, id);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ------------------------------------------------------------- admin calls */
@@ -263,12 +295,19 @@ function setOrderFlag(pin, id, field, value) {
   if (!col) throw new Error('Unknown field');
   value = value === true;
   const sh = getSpreadsheet_().getSheetByName('Orders');
-  const cell = findOrder_(sh, id);
-  if (!cell) throw new Error('Order not found: ' + id);
-  const row = cell.getRow();
-  sh.getRange(row, col).setValue(value);
-
-  const r = sh.getRange(row, 1, 1, ORDER_HEADERS.length).getValues()[0];
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let row, r;
+  try {
+    const cell = findOrder_(sh, id);
+    if (!cell) throw new Error('Order not found (cancelled?): ' + id);
+    row = cell.getRow();
+    sh.getRange(row, col).setValue(value);
+    SpreadsheetApp.flush();
+    r = sh.getRange(row, 1, 1, ORDER_HEADERS.length).getValues()[0];
+  } finally {
+    lock.releaseLock();
+  }
   CacheService.getScriptCache().put('st_' + id,
     JSON.stringify({ paid: r[COL.PAID - 1] === true, ready: r[COL.READY - 1] === true }), 30);
 
@@ -283,6 +322,23 @@ function setOrderFlag(pin, id, field, value) {
     }
   }
   return result;
+}
+
+/** Delete one order (cancelled or a test) from Orders and Order Items. Can't be undone. */
+function deleteOrder(pin, id) {
+  checkPin_(pin);
+  id = String(id || '');
+  if (!/^\d{8}-\d+$/.test(id)) throw new Error('Bad order id');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = getSpreadsheet_();
+    if (!findOrder_(ss.getSheetByName('Orders'), id)) throw new Error('Order not found (already deleted?)');
+    removeOrder_(ss, id);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function setOpen(pin, open) {
@@ -507,6 +563,33 @@ function readMenu_() {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Remove an order's rows from Orders and Order Items. Call while holding the script lock. */
+function removeOrder_(ss, id) {
+  const orders = ss.getSheetByName('Orders');
+  const cell = findOrder_(orders, id);
+  if (cell) orders.deleteRow(cell.getRow());
+  const items = ss.getSheetByName('Order Items');
+  const last = items.getLastRow();
+  if (last >= 2) {
+    const ids = items.getRange(2, 1, last - 1, 1).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0]) === id) items.deleteRow(i + 2);
+    }
+  }
+  CacheService.getScriptCache().remove('st_' + id);
+}
+
+/** Private per-order key (HMAC of the order id), so only the person who ordered can cancel. */
+function cancelKey_(id) {
+  const props = PropertiesService.getScriptProperties();
+  let secret = props.getProperty('CANCEL_SECRET');
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty('CANCEL_SECRET', secret);
+  }
+  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(id), secret)).slice(0, 22);
 }
 
 function findOrder_(sh, id) {
