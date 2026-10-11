@@ -43,7 +43,9 @@
   .qr .empty { color: var(--muted); text-align: center; font-size: 15px; }
   .cta h2 { font: 700 40px/1.05 var(--display); letter-spacing: .03em; color: var(--green); margin: 0 0 14px; }
   .cta ol { margin: 0; padding-left: 22px; font-size: 18px; line-height: 1.6; }
-  .cta .url { margin-top: 16px; font-size: 20px; font-weight: 700; color: var(--green); word-break: break-all; }
+  .cta .url { margin-top: 16px; font-size: 20px; font-weight: 700; color: var(--green); }
+  .cta .url.long { font-size: 16px; }
+  .cta .url .nw { white-space: nowrap; }
 
   .menu { flex: 1; margin: 0 .6in; border-top: 2px solid var(--green-line); padding-top: .18in; }
   .menu h3 { font: 700 22px/1 var(--display); letter-spacing: .04em; color: var(--green); margin: 0 0 10px; }
@@ -134,7 +136,9 @@ function draw() {
   const box = document.getElementById('qr');
   // print the link under the QR only when it's short enough to type
   const shown = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-  document.getElementById('urlText').textContent = shown && shown.length <= 40 ? 'or go to ' + shown : '';
+  const urlText = document.getElementById('urlText');
+  urlText.innerHTML = shown && shown.length <= 40 ? 'or go to<br><span class="nw">' + esc(shown) + '</span>' : '';
+  urlText.classList.toggle('long', shown.length > 24);
   if (!url) { box.innerHTML = '<div class="empty">Paste your link above<br>to make the QR code</div>'; return; }
   if (typeof qrcode === 'undefined') { box.innerHTML = '<div class="empty">Connect to the internet to make the QR code</div>'; return; }
   const qr = qrcode(0, 'M');
