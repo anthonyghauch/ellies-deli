@@ -29,10 +29,16 @@
   .toggle input:checked + .switch { background: #4cc78f; }
   .toggle input:checked + .switch::after { left: 19px; }
   .toggle input:focus-visible + .switch { outline: 2px solid var(--white); outline-offset: 2px; }
-  .linkbtn { color: var(--white); text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 4px 10px; font-weight: 500; white-space: nowrap; }
+  .linkbtn { background: none; font: inherit; cursor: pointer; color: var(--white); text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 4px 10px; font-weight: 500; white-space: nowrap; }
   .linkbtn:hover { background: rgba(255,255,255,.12); }
 
   /* stats + filters */
+  .night-sep {
+    padding: 14px 16px 6px; font: 700 15px/1.2 var(--display); letter-spacing: .04em; color: var(--green);
+    border-bottom: 2px solid var(--green-line); background: var(--white);
+  }
+  .night-sep small { font: 500 12px var(--body); letter-spacing: 0; color: var(--muted); margin-left: 8px; }
+  .sub.past .stat, .sub.past #sort { display: none; }
   .sub { color: var(--ink); display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; padding: 8px 16px; background: var(--green-soft); border-bottom: 1px solid var(--green-line); }
   .stat { white-space: nowrap; color: var(--muted); }
   .stat b { color: var(--ink); font-size: 15px; }
@@ -185,9 +191,11 @@
       <div class="views" id="views">
         <button type="button" data-v="orders" class="on">Orders <span class="cnt" id="ordersCount"></span></button>
         <button type="button" data-v="done">Done <span class="cnt" id="doneCount"></span></button>
+        <button type="button" data-v="past" title="Orders from earlier nights">Past</button>
         <button type="button" data-v="menu">Menu</button>
       </div>
       <input type="date" id="night" aria-label="Night">
+      <button type="button" class="linkbtn" id="tonightBtn" hidden title="Back to tonight's orders">Tonight</button>
       <label class="toggle" title="Turn online ordering on or off">
         <input type="checkbox" id="openToggle"><span class="switch"></span><span id="openLabel">Taking orders</span>
       </label>
@@ -269,13 +277,21 @@ window.DEMO = (() => {
       sandwiches: qty[0] + qty[1], total, payment: i % 3 ? 'Card' : 'Cash',
       notes: notes[i % notes.length], paid: i < 3, ready: i < 5, notified: i < 5 };
   });
+  const pastOrders = [
+    ['20261010-2', 'Sat 10/10', 'Joey Q.', '2× The Deece, 1× Sprite · Hungry Man ×1 (−$1.00)', 6, true, true],
+    ['20261010-1', 'Sat 10/10', 'Test order', '1× The Classic', 1, false, true],
+    ['20261009-1', 'Fri 10/9', 'Grace K.', '1× The Frad', 3, true, true],
+  ].map(([id, label, name, items, total, paid, ready]) => ({ id, number: Number(id.split('-')[1]), night: id.slice(0, 4) + '-' + id.slice(4, 6) + '-' + id.slice(6, 8),
+    nightLabel: label, time: '10:15 PM', name, email: 'x@nd.edu', items, sandwiches: 2, total, payment: 'Card', notes: '', paid, ready, notified: ready, discount: 0 }));
   let open = true;
   const deal = { on: true, name: 'Hungry Man', sandwiches: 2, drinks: 1, discount: 1 };
   return {
     checkPin: async (p) => { if (p !== '1234') throw new Error('Wrong PIN (demo PIN is 1234)'); return true; },
-    getOrders: async (pin, night) => ({ night: night || '2026-10-11', open, orders: JSON.parse(JSON.stringify(orders)) }),
+    getOrders: async (pin, night) => night === 'past'
+      ? { night: 'past', open, orders: JSON.parse(JSON.stringify(pastOrders)) }
+      : { night: night || '2026-10-11', open, orders: JSON.parse(JSON.stringify(orders)) },
     setOrderFlag: async (pin, id, field, v) => {
-      const o = orders.find(x => x.id === id);
+      const o = orders.find(x => x.id === id) || pastOrders.find(x => x.id === id);
       o[field] = v;
       const emailed = field === 'ready' && v && !o.notified;
       if (emailed) o.notified = true;
@@ -283,7 +299,10 @@ window.DEMO = (() => {
     },
     setOpen: async (pin, v) => (open = v),
     getSheetUrl: async () => 'https://docs.google.com/spreadsheets/',
-    deleteOrder: async (pin, id) => { orders.splice(orders.findIndex(x => x.id === id), 1); return true; },
+    deleteOrder: async (pin, id) => {
+      for (const list of [orders, pastOrders]) { const i = list.findIndex(x => x.id === id); if (i >= 0) list.splice(i, 1); }
+      return true;
+    },
     getAdminMenu: async () => menu.map(([name, price]) => ({ name, price, category: 'Sandwiches', available: avail[name] }))
       .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] }))),
     setItemAvailable: async (pin, name, v) => (avail[name] = v),
@@ -294,7 +313,7 @@ window.DEMO = (() => {
 
 /* ---- state ---- */
 const store = storage('sessionStorage');
-const S = { pin: '', night: '', orders: [], seen: null, filter: 'all', newestFirst: false, pending: {}, timer: null, view: 'orders', menu: [] };
+const S = { pin: '', night: '', orders: [], past: [], seen: null, filter: 'all', newestFirst: false, pending: {}, timer: null, view: 'orders', menu: [] };
 
 /* ---- login ---- */
 $('loginForm').addEventListener('submit', async (e) => {
@@ -318,7 +337,7 @@ async function login(pin) {
   syncHeadOffset();
   call('getSheetUrl', pin).then(url => { $('sheetLink').href = url; }).catch(() => {});
   await load();
-  S.timer = setInterval(() => { if (S.view !== 'menu') load(); }, 15000);
+  S.timer = setInterval(() => { if (S.view === 'orders' || S.view === 'done') load(); }, 15000);
 }
 
 /* ---- orders ---- */
@@ -326,7 +345,10 @@ async function load() {
   try {
     const data = await call('getOrders', S.pin, S.night);
     S.night = data.night;
+    if (!S.tonight) S.tonight = data.night;   // the first load is always tonight
     $('night').value = data.night;
+    $('night').max = S.tonight;               // no picking future nights
+    $('tonightBtn').hidden = S.night === S.tonight || S.view === 'past' || S.view === 'menu';
     setOpenUi(data.open);
     // keep checkbox changes that are still being saved
     data.orders.forEach(o => {
@@ -380,6 +402,7 @@ function render(fresh) {
   $('doneCount').textContent = doneCount || '';
 
   const q = $('search').value.trim().toLowerCase();
+  if (S.view === 'past') return renderPast(q);
   const inTab = all.filter(o => (S.view === 'done') === isDone(o));
   const rows = inTab.filter(o =>
     (S.view === 'done' || S.filter === 'all' || (S.filter === 'unpaid' && !o.paid) || (S.filter === 'todo' && !o.ready)) &&
@@ -394,7 +417,39 @@ function render(fresh) {
     $('list').innerHTML = `<div class="empty">${msg}</div>`;
     return;
   }
-  $('list').innerHTML = rows.map(o => `
+  $('list').innerHTML = rows.map(o => rowHtml(o, fresh)).join('');
+}
+
+function renderPast(q) {
+  const rows = S.past.filter(o => !q || [o.name, o.email, o.items, o.notes, '#' + o.number, o.nightLabel].join(' ').toLowerCase().includes(q));
+  if (!rows.length) {
+    $('list').innerHTML = `<div class="empty">${S.past.length ? 'No orders match.' : (S.pastLoaded ? 'No orders from earlier nights.' : 'Loading…')}</div>`;
+    return;
+  }
+  const byNight = {};
+  rows.forEach(o => { (byNight[o.night] = byNight[o.night] || []).push(o); });
+  $('list').innerHTML = Object.keys(byNight).sort().reverse().map(n => {
+    const list = byNight[n];
+    const total = list.reduce((s, o) => s + o.total, 0);
+    return `<div class="night-sep">${esc(list[0].nightLabel)}<small>${list.length} order${list.length === 1 ? '' : 's'} · ${money(total)}</small></div>` +
+      list.map(o => rowHtml(o, new Set())).join('');
+  }).join('');
+}
+
+async function loadPast() {
+  try {
+    const data = await call('getOrders', S.pin, 'past');
+    S.past = data.orders;
+    S.pastLoaded = true;
+    if (S.view === 'past') render();
+    $('errBar').hidden = true;
+  } catch (err) {
+    showError("Couldn't load past orders: " + err.message);
+  }
+}
+
+function rowHtml(o, fresh) {
+  return `
     <div class="row${o.paid ? ' paid' : ''}${o.ready ? ' ready' : ''}${fresh.has(o.id) ? ' fresh' : ''}" data-id="${esc(o.id)}">
       <span class="num">#${o.number}</span>
       <span class="time">${esc(o.time)}</span>
@@ -408,8 +463,10 @@ function render(fresh) {
         <label class="c" title="${o.notified ? 'Ready email sent' : 'Tick to email the customer'}"><input type="checkbox" data-f="ready" ${o.ready ? 'checked' : ''} aria-label="Ready, order ${o.number}"><span class="m-label">Ready</span>${o.notified ? '<span class="sent" aria-label="email sent">✉</span>' : ''}</label>
         <button type="button" class="del" data-del="${esc(o.id)}" title="Delete order" aria-label="Delete order ${o.number}">${TRASH}</button>
       </span>
-    </div>`).join('');
+    </div>`;
 }
+
+const findOrder = (id) => S.orders.find(x => x.id === id) || S.past.find(x => x.id === id);
 
 /* ---- delete one order (cancelled or test) ---- */
 const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
@@ -418,7 +475,7 @@ let delId = null;
 $('list').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-del]');
   if (!b) return;
-  const o = S.orders.find(x => x.id === b.dataset.del);
+  const o = findOrder(b.dataset.del);
   if (!o) return;
   delId = o.id;
   $('delTitle').textContent = `Delete order #${o.number}?`;
@@ -436,13 +493,14 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('delB
 
 $('delYes').addEventListener('click', async () => {
   const id = delId;
-  const o = S.orders.find(x => x.id === id);
+  const o = findOrder(id);
   if (!o) return closeDel();
   $('delYes').disabled = true;
   $('delYes').textContent = 'Deleting…';
   try {
     await call('deleteOrder', S.pin, id);
     S.orders = S.orders.filter(x => x.id !== id);
+    S.past = S.past.filter(x => x.id !== id);
     if (S.seen) S.seen.delete(id);
     closeDel();
     render();
@@ -460,7 +518,7 @@ $('list').addEventListener('change', async (e) => {
   const id = box.closest('.row').dataset.id;
   const field = box.dataset.f;
   const value = box.checked;
-  const order = S.orders.find(o => o.id === id);
+  const order = findOrder(id);
   const key = id + field;
   order[field] = value;
   S.pending[key] = value;
@@ -481,7 +539,7 @@ $('list').addEventListener('change', async (e) => {
     if (S.pending[key] === value) delete S.pending[key];
   }
   const nowDone = order.paid && order.ready;
-  if (nowDone && S.view !== 'done') toast(`#${order.number} is paid and ready, moved to Done`);
+  if (nowDone && S.view === 'orders') toast(`#${order.number} is paid and ready, moved to Done`);
   if (!nowDone && S.view === 'done') toast(`#${order.number} moved back to Orders`);
   render();
 });
@@ -499,6 +557,12 @@ $('sort').addEventListener('click', () => {
   render();
 });
 $('search').addEventListener('input', () => render());
+$('tonightBtn').addEventListener('click', () => {
+  S.night = S.tonight;
+  S.seen = null;
+  $('list').innerHTML = '<div class="msg">Loading…</div>';
+  load();
+});
 $('night').addEventListener('change', () => {
   S.night = $('night').value;
   S.seen = null;
@@ -522,10 +586,14 @@ $('views').addEventListener('click', (e) => {
   $('menuView').hidden = !isMenu;
   $('ordersView').hidden = isMenu;
   $('ordersBar').hidden = isMenu;
-  $('night').hidden = isMenu;
-  $('filter').hidden = S.view === 'done';
+  $('filter').hidden = S.view !== 'orders';
+  $('night').hidden = isMenu || S.view === 'past';
+  $('ordersBar').classList.toggle('past', S.view === 'past');
+  $('tonightBtn').hidden = isMenu || S.view === 'past' || S.night === S.tonight;
   syncHeadOffset();
-  if (isMenu) loadMenu(); else { render(); load(); }
+  if (isMenu) loadMenu();
+  else if (S.view === 'past') { S.pastLoaded = false; S.past = []; render(); loadPast(); }
+  else { render(); load(); }
 });
 
 async function loadMenu() {
