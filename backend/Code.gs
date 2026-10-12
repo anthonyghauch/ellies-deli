@@ -293,18 +293,25 @@ function checkPin(pin) {
   return true;
 }
 
-/** Orders for one night (yyyy-MM-dd). Defaults to tonight. */
+/**
+ * Orders for one night (yyyy-MM-dd), defaulting to tonight.
+ * night = 'past' returns every earlier night instead (newest first, up to 500) for the Past tab.
+ */
 function getOrders(pin, night) {
   checkPin_(pin);
-  const target = night || fmt_(serviceNight_(new Date()), 'yyyy-MM-dd');
+  const tonight = fmt_(serviceNight_(new Date()), 'yyyy-MM-dd');
+  const past = night === 'past';
+  const target = past ? tonight : (night || tonight);
   const sh = getSpreadsheet_().getSheetByName('Orders');
   const last = sh.getLastRow();
   const rows = last < 2 ? [] : sh.getRange(2, 1, last - 1, ORDER_HEADERS.length).getValues();
-  const orders = rows
-    .filter(r => r[0] && toDay_(r[2]) === target)
+  let orders = rows
+    .filter(r => r[0] && (past ? toDay_(r[2]) < tonight : toDay_(r[2]) === target))
     .map(r => ({
       id: String(r[0]),
       number: Number(String(r[0]).split('-')[1]) || 0,
+      night: toDay_(r[2]),
+      nightLabel: r[2] instanceof Date ? fmt_(r[2], 'EEE M/d') : String(r[2]),
       time: r[1] instanceof Date ? fmt_(r[1], 'h:mm a') : String(r[1]),
       name: String(r[3]), room: String(r[4]), email: String(r[5]),
       items: String(r[6]), sandwiches: Number(r[7]) || 0, total: Number(r[8]) || 0,
@@ -312,7 +319,11 @@ function getOrders(pin, night) {
       paid: r[11] === true, ready: r[12] === true, notified: !!r[13],
       discount: Number(r[14]) || 0,
     }));
-  return { night: target, open: isOpen_(), dealOn: isDealOn_(), orders: orders };
+  if (past) {
+    orders.sort((a, b) => (b.night + String(1e6 + b.number)).localeCompare(a.night + String(1e6 + a.number)));
+    orders = orders.slice(0, 500);
+  }
+  return { night: past ? 'past' : target, open: isOpen_(), dealOn: isDealOn_(), orders: orders };
 }
 
 /**
