@@ -62,7 +62,7 @@ const SEED_MENU = [
 
 // Everything the website is allowed to call.
 const API = {
-  getMenu, placeOrder, getOrderStatus, cancelOrder,
+  getMenu, getQueue, placeOrder, getOrderStatus, cancelOrder,
   checkPin, getOrders, setOrderFlag, setOpen, getSheetUrl, getAdminMenu, setItemAvailable,
   getDeal, setDeal, deleteOrder,
 };
@@ -118,7 +118,19 @@ function getMenu() {
     paymentNote: CONFIG.PAYMENT_NOTE,
     maxQty: CONFIG.MAX_QTY_PER_ITEM,
     deal: dealInfo_(),
+    queue: queueNow_(),
   };
+}
+
+/** How many orders are waiting right now (shown on the menu before ordering). Cheap: uses the shared snapshot. */
+function getQueue() {
+  return { open: isOpen_(), queue: queueNow_() };
+}
+
+/** Tonight's orders that aren't Ready yet = how many would be ahead of a new order. */
+function queueNow_() {
+  const snap = nightSnapshot_(fmt_(serviceNight_(new Date()), 'yyyyMMdd'), false);
+  return Object.keys(snap).filter(k => !snap[k][1]).length;
 }
 
 function placeOrder(order) {
