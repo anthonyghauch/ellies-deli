@@ -257,7 +257,7 @@
   <div id="installWrap" hidden>
     <div class="install">
       <img src="icons/apple-touch-icon.png" alt="">
-      <div class="txt"><b>Put Ellie's Deli on your home screen</b>It opens like an app, nothing to download.</div>
+      <div class="txt"><b id="installTitle">Put Ellie's Deli on your home screen</b><span id="installSub">It opens like an app, nothing to download.</span></div>
       <button type="button" class="go" id="installBtn">Add</button>
       <button type="button" class="x" id="installX" aria-label="Hide">×</button>
     </div>
@@ -727,13 +727,18 @@ document.addEventListener('visibilitychange', () => {
   else if (state.closed) checkReopen();
 });
 
-/* ---- "Add to home screen": Android gets the browser's install prompt, iPhone gets the steps ---- */
+/* ---- "Add to home screen": Chrome/Edge get the browser's install prompt, iPhone and Mac Safari get the steps ---- */
 const APP = (() => {
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const android = /Android/.test(ua);
   return {
     ios, android, prompt: null,
+    phone: ios || android,
+    // Safari on a Mac can "Add to Dock" (no install prompt there, so we show the steps)
+    macSafari: !ios && /Macintosh/.test(ua) && /Version\/[\d.]+ Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua),
+    // Chrome, Edge & co. on a computer can install it as an app (Firefox can't)
+    desktopChrome: !ios && !android && /Chrome\/|Chromium\/|Edg\//.test(ua) && !/Firefox/.test(ua),
     installed: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
     // Instagram, GroupMe & co. open links in their own browser, which can't add to the home screen
     inApp: /FBAN|FBAV|Instagram|GroupMe|Snapchat|LinkedInApp|Line\//.test(ua) || (ios && !/Safari\//.test(ua)) || (android && /; wv\)/.test(ua)),
@@ -748,14 +753,31 @@ function installSteps() {
     <li>Tap the <b>Share</b> button ${SHARE_ICON}. In Safari it's at the bottom of the screen (or under <b>⋯</b>).</li>
     <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
     <li>Tap <b>Add</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
+  if (APP.macSafari) return `<p>On a Mac (Safari)</p><ol>
+    <li>In the menu bar at the top of the screen, click <b>File</b>.</li>
+    <li>Click <b>Add to Dock</b>, then <b>Add</b>. Ellie's Deli shows up in your Dock.</li></ol>`;
+  if (!APP.android) return `<p>On a computer (Chrome or Edge)</p><ol>
+    <li>Click the <b>install</b> icon at the right end of the address bar.</li>
+    <li>No icon? Open the browser menu (<b>⋮</b> or <b>⋯</b>). In Chrome: <b>Cast, save and share</b>, then <b>Install page as app</b>. In Edge: <b>Apps</b>, then <b>Install this site as an app</b>.</li>
+    <li>Click <b>Install</b>. Ellie's Deli opens in its own window.</li></ol>`;
   return `<p>On Android</p><ol>
     <li>Tap the browser menu <b>⋮</b> (top right).</li>
     <li>Tap <b>Add to Home screen</b> or <b>Install app</b>.</li>
     <li>Tap <b>Install</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
 }
 
+/** Phones, Mac Safari and Chrome/Edge on a computer get the card (any other browser once it offers to install). */
 function initInstall() {
-  if (APP.installed || !(APP.ios || APP.android)) return;
+  if (!APP.installed && (APP.phone || APP.macSafari || APP.desktopChrome)) showInstall();
+}
+
+function showInstall() {
+  if (!APP.phone) {
+    $('installTitle').textContent = "Install Ellie's Deli on this computer";
+    $('installSub').textContent = 'It opens in its own window, like an app.';
+    $('installBtn').textContent = 'Install';
+    $('installShow').textContent = 'Install the app';
+  }
   const dismissed = Date.now() - (Number(store.get('ed_install_x')) || 0) < 30 * 86400e3;
   $('installWrap').hidden = dismissed;
   $('installLink').hidden = !dismissed;
@@ -763,8 +785,12 @@ function initInstall() {
 
 function hideInstall() { $('installWrap').hidden = true; $('installLink').hidden = true; }
 
-// Chrome on Android: keep its install prompt for our own "Add" button instead of its banner
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); APP.prompt = e; });
+// Chrome / Edge: keep their install prompt for our own "Add" button instead of their banner
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  APP.prompt = e;
+  if (!APP.installed && $('installWrap').hidden && $('installLink').hidden) showInstall();
+});
 window.addEventListener('appinstalled', hideInstall);
 
 $('installBtn').addEventListener('click', async () => {
