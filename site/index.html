@@ -18,6 +18,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="brand.css">
+<script>
+  // the customer app covers index.html only (so the kitchen page can be its own app): use that address
+  if (/\/$/.test(location.pathname)) history.replaceState(null, '', location.pathname + 'index.html' + location.search + location.hash);
+</script>
 <style>
   .wrap { max-width: 640px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
   header.masthead { padding: calc(18px + env(safe-area-inset-top)) 0 20px; }
@@ -147,18 +151,6 @@
   .steps li.on { color: var(--green); font-weight: 700; }
   .steps li.on::before, .steps li.on::after { background: var(--green); border-color: var(--green); }
   .steps li.now::before { box-shadow: 0 0 0 5px var(--green-soft); }
-  /* "add to home screen" card (phones only, gone once it's installed) */
-  .install { display: flex; align-items: center; gap: 12px; margin-top: 28px; padding: 12px 14px; border: 1.5px solid var(--green-line); border-radius: var(--radius); }
-  .install img { flex: none; width: 46px; height: 46px; border-radius: 11px; }
-  .install .txt { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); }
-  .install .txt b { display: block; color: var(--ink); font-size: 15px; }
-  .install .go { flex: none; height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--green); color: var(--white); font-weight: 700; cursor: pointer; }
-  .install .x { flex: none; width: 30px; height: 30px; margin-right: -6px; border: 0; background: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
-  .install-steps { margin-top: 10px; padding: 14px 16px; background: var(--green-soft); border-radius: var(--radius); font-size: 14px; }
-  .install-steps p { margin: 0 0 8px; font-weight: 700; }
-  .install-steps ol { margin: 0; padding-left: 20px; }
-  .install-steps li + li { margin-top: 6px; }
-  .install-steps .ico { display: inline-block; width: 18px; height: 18px; vertical-align: -4px; color: #0a84ff; }
   .foot-link { background: none; border: 0; padding: 4px; margin-top: 6px; color: var(--green); font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
   footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0 8px; }
   .plaque .charity { margin: 8px 0 0; color: var(--tan); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -727,48 +719,9 @@ document.addEventListener('visibilitychange', () => {
   else if (state.closed) checkReopen();
 });
 
-/* ---- "Add to home screen": Chrome/Edge get the browser's install prompt, iPhone and Mac Safari get the steps ---- */
-const APP = (() => {
-  const ua = navigator.userAgent;
-  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const android = /Android/.test(ua);
-  return {
-    ios, android, prompt: null,
-    phone: ios || android,
-    // Safari on a Mac can "Add to Dock" (no install prompt there, so we show the steps)
-    macSafari: !ios && /Macintosh/.test(ua) && /Version\/[\d.]+ Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua),
-    // Chrome, Edge & co. on a computer can install it as an app (Firefox can't)
-    desktopChrome: !ios && !android && /Chrome\/|Chromium\/|Edg\//.test(ua) && !/Firefox/.test(ua),
-    installed: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
-    // Instagram, GroupMe & co. open links in their own browser, which can't add to the home screen
-    inApp: /FBAN|FBAV|Instagram|GroupMe|Snapchat|LinkedInApp|Line\//.test(ua) || (ios && !/Safari\//.test(ua)) || (android && /; wv\)/.test(ua)),
-  };
-})();
-const SHARE_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16"/></svg>';
-
-function installSteps() {
-  if (APP.inApp) return `<p>Open this page in ${APP.ios ? 'Safari' : 'Chrome'} first</p>
-    This app's built-in browser can't add it. Tap the <b>⋯</b> menu, choose <b>Open in ${APP.ios ? 'Safari' : 'browser'}</b>, then tap <b>Add</b> again.`;
-  if (APP.ios) return `<p>On iPhone</p><ol>
-    <li>Tap the <b>Share</b> button ${SHARE_ICON}. In Safari it's at the bottom of the screen (or under <b>⋯</b>).</li>
-    <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
-    <li>Tap <b>Add</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
-  if (APP.macSafari) return `<p>On a Mac (Safari)</p><ol>
-    <li>In the menu bar at the top of the screen, click <b>File</b>.</li>
-    <li>Click <b>Add to Dock</b>, then <b>Add</b>. Ellie's Deli shows up in your Dock.</li></ol>`;
-  if (!APP.android) return `<p>On a computer (Chrome or Edge)</p><ol>
-    <li>Click the <b>install</b> icon at the right end of the address bar.</li>
-    <li>No icon? Open the browser menu (<b>⋮</b> or <b>⋯</b>). In Chrome: <b>Cast, save and share</b>, then <b>Install page as app</b>. In Edge: <b>Apps</b>, then <b>Install this site as an app</b>.</li>
-    <li>Click <b>Install</b>. Ellie's Deli opens in its own window.</li></ol>`;
-  return `<p>On Android</p><ol>
-    <li>Tap the browser menu <b>⋮</b> (top right).</li>
-    <li>Tap <b>Add to Home screen</b> or <b>Install app</b>.</li>
-    <li>Tap <b>Install</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
-}
-
-/** Phones, Mac Safari and Chrome/Edge on a computer get the card (any other browser once it offers to install). */
+/* ---- "Add to home screen" card (device detection and steps live in common.js) ---- */
 function initInstall() {
-  if (!APP.installed && (APP.phone || APP.macSafari || APP.desktopChrome)) showInstall();
+  if (APP.offer()) showInstall();
 }
 
 function showInstall() {
@@ -785,23 +738,17 @@ function showInstall() {
 
 function hideInstall() { $('installWrap').hidden = true; $('installLink').hidden = true; }
 
-// Chrome / Edge: keep their install prompt for our own "Add" button instead of their banner
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  APP.prompt = e;
+// another browser just said it can install: offer it there too
+window.addEventListener('beforeinstallprompt', () => {
   if (!APP.installed && $('installWrap').hidden && $('installLink').hidden) showInstall();
 });
 window.addEventListener('appinstalled', hideInstall);
 
 $('installBtn').addEventListener('click', async () => {
-  if (APP.prompt) {
-    const p = APP.prompt;
-    APP.prompt = null;
-    p.prompt();
-    try { if ((await p.userChoice).outcome === 'accepted') hideInstall(); } catch (e) {}
-    return;
-  }
-  $('installSteps').innerHTML = installSteps();
+  const done = await promptInstall();
+  if (done) hideInstall();
+  if (done !== null) return;
+  $('installSteps').innerHTML = installSteps("Ellie's Deli");
   $('installSteps').hidden = !$('installSteps').hidden;
 });
 $('installX').addEventListener('click', () => {

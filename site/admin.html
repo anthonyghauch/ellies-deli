@@ -147,6 +147,8 @@
   .login input:focus { outline: none; border-color: var(--green); }
   .login button { width: 100%; margin-top: 12px; height: 46px; border: 0; border-radius: 10px; background: var(--green); color: var(--white); font-weight: 700; font-size: 16px; cursor: pointer; }
   .login .err { color: var(--danger); min-height: 1.4em; margin-top: 10px; }
+  .login .install { margin-top: 14px; }
+  .login .install-steps p { margin: 0 0 8px; color: var(--ink); }
 
   /* phones: each order becomes a compact 2–3 line block */
   @media (max-width: 760px) {
@@ -186,6 +188,14 @@
       <input type="password" id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="Admin PIN">
       <button type="submit">Open kitchen</button>
       <div class="err" id="loginErr" role="alert"></div>
+    </div>
+    <div id="installBox" hidden>
+      <div class="install">
+        <img src="icons/kitchen-180.png" alt="">
+        <div class="txt"><b id="installTitle">Add the kitchen to your home screen</b>Opens straight to the orders.</div>
+        <button type="button" class="go" id="installBtn">Add</button>
+      </div>
+      <div class="install-steps" id="installSteps" hidden></div>
     </div>
   </form>
 </div>
@@ -340,6 +350,7 @@ async function login(pin) {
   store.set('ed_pin', pin);
   $('login').hidden = true;
   $('app').hidden = false;
+  $('menuView').appendChild($('installBox'));
   syncHeadOffset();
   call('getSheetUrl', pin).then(url => { $('sheetLink').href = url; }).catch(() => {});
   await load();
@@ -675,6 +686,26 @@ function syncHeadOffset() {
   document.documentElement.style.setProperty('--top-h', $('top').offsetHeight + 'px');
 }
 window.addEventListener('resize', syncHeadOffset);
+
+/* ---- install the kitchen as its own app (device detection and steps live in common.js) ---- */
+function initInstall() {
+  if (!APP.offer()) return;
+  if (!APP.phone) {
+    $('installTitle').textContent = 'Install the kitchen app';
+    $('installBtn').textContent = 'Install';
+  }
+  $('installBox').hidden = false;
+}
+window.addEventListener('beforeinstallprompt', () => { if ($('installBox').hidden) initInstall(); });
+window.addEventListener('appinstalled', () => { $('installBox').hidden = true; });
+$('installBtn').addEventListener('click', async () => {
+  const done = await promptInstall();
+  if (done) $('installBox').hidden = true;
+  if (done !== null) return;
+  $('installSteps').innerHTML = installSteps('Deli Kitchen');
+  $('installSteps').hidden = !$('installSteps').hidden;
+});
+initInstall();
 
 const savedPin = store.get('ed_pin');
 if (savedPin) login(savedPin);

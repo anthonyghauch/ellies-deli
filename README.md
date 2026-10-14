@@ -63,7 +63,7 @@ After changing `Code.gs` later, publish it with **Deploy**, then **Manage deploy
 Both pages can be added to a phone's home screen. They open full screen, without the browser bar, with the Ellie's Deli logo as the icon.
 
 - **Customers**: on phones, the bottom of the ordering page shows **Put Ellie's Deli on your home screen**. On Android, **Add** installs it in one tap. On iPhone, it shows the steps: **Share**, then **Add to Home Screen**, then **Add**. On a laptop (Chrome, Edge, or Safari on a Mac) it says **Install Ellie's Deli on this computer** and installs it as an app with its own window. Firefox can't install apps, so it doesn't show there. The card disappears once it's installed. **×** hides it for 30 days, and an **Add to home screen** link stays in the footer.
-- **Kitchen**: open `admin.html` on your phone and add it to your home screen (iPhone: Share, then Add to Home Screen; Android: ⋮ menu, then Add to Home screen). It gets its own **Deli Kitchen** icon and opens straight to the kitchen page.
+- **Kitchen**: the kitchen login screen (and the bottom of the **Menu** tab) shows **Add the kitchen to your home screen** (on a laptop: **Install the kitchen app**). It gets its own **Deli Kitchen** icon and opens straight to the kitchen page. The two apps are kept apart: the customer app only covers the ordering page, so installing one never blocks the other.
 - On iPhone, the home-screen app keeps its own storage, separate from Safari. An order placed in Safari is tracked in Safari, and one placed in the app is tracked in the app.
 - A home-screen app has no refresh button, so the pages refresh themselves: the "Kitchen's closed" page switches to the menu as soon as **Taking orders** is turned on.
 
