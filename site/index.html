@@ -87,7 +87,19 @@
   .done-num { font: 700 60px/1 var(--display); color: var(--green); margin: 8px 0; }
   .ghost { margin-top: 24px; background: none; border: 1.5px solid var(--green); color: var(--green); border-radius: 12px; height: 46px; padding: 0 22px; font-weight: 700; cursor: pointer; }
   .pay { background: var(--green-soft); border-radius: 12px; padding: 14px; margin: 18px auto 0; max-width: 380px; color: var(--ink); }
-  .rules { background: var(--green-soft); border-radius: var(--radius); padding: 14px 16px; margin-top: 20px; font-size: 14px; color: var(--ink); }
+  .line-now {
+    display: flex; align-items: center; gap: 12px; margin-top: 20px; padding: 12px 16px;
+    border: 1.5px solid var(--green-line); border-radius: var(--radius); background: var(--white);
+  }
+  .line-num {
+    flex: none; min-width: 46px; height: 46px; padding: 0 8px; border-radius: 23px; background: var(--green); color: var(--white);
+    display: grid; place-items: center; font: 700 22px/1 var(--display);
+  }
+  .line-now .lbl { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .line-now .txt { font-weight: 700; color: var(--ink); }
+  .line-hint { margin-top: 14px; text-align: center; font-size: 14px; color: var(--muted); }
+  .line-hint b { color: var(--green); }
+  .rules { background: var(--green-soft); border-radius: var(--radius); padding: 14px 16px; margin-top: 12px; font-size: 14px; color: var(--ink); }
   .deal {
     display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 12px 16px;
     background: #fdf4e8; border: 2px solid var(--tan); border-radius: var(--radius); color: var(--ink); font-size: 14px;
@@ -157,6 +169,10 @@
   </div>
 
   <div id="order" hidden>
+    <div class="line-now" id="lineNow" role="status" aria-live="polite" hidden>
+      <div class="line-num" id="lineNum"></div>
+      <div><div class="lbl">Line right now</div><div class="txt" id="lineText"></div></div>
+    </div>
     <div class="rules">
       Order as many sandwiches as you like, but only if you're sure you can pick them up.
       Pay by <strong>card or cash</strong> in the basement when you pick up.
@@ -184,6 +200,7 @@
       <label for="notes">Notes <small>(anything we should know)</small></label>
       <textarea id="notes" maxlength="300"></textarea>
 
+      <div class="line-hint" id="lineHint" hidden></div>
       <button class="primary" id="submit" type="submit">Place order</button>
       <div class="error" id="error" role="alert"></div>
     </form>
@@ -231,6 +248,7 @@ window.DEMO = {
     open: true, paymentMethods: ['Card', 'Cash'], maxQty: 5,
     paymentNote: 'Pay by card or cash when you pick up in the basement.',
     deal: { on: true, name: 'Hungry Man', sandwiches: 2, drinks: 1, discount: 1 },
+    queue: 3,
     items: [
       ['The Classic', 1, 'Colby Jack'], ['The Porky', 2, 'Colby Jack, Bacon Bits'],
       ['The Piggy', 2, 'Colby Jack, Pepperoni'], ['The Hammy', 2, 'Colby Jack, Ham'],
@@ -243,6 +261,7 @@ window.DEMO = {
         ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
         .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true }))),
   }),
+  getQueue: async () => ({ open: true, queue: 3 }),
   placeOrder: async (o) => {
     const t = cartTotals(o.items.map(i => ({ name: i.name, qty: i.qty, price: state.prices[i.name] })));
     DEMO.readyAt = Date.now() + 6000;  // demo: order turns "ready" after 6 seconds
@@ -284,6 +303,7 @@ async function init() {
   state.paymentNote = data.paymentNote;
   state.maxQty = data.maxQty || 5;
   state.deal = data.deal || null;
+  renderLine(data.queue);
   applyMenu(data.items);
   $('maxNote').textContent = `Want more than ${state.maxQty} of the same thing? Please order in person.`;
   $('payments').innerHTML = data.paymentMethods.map((m, i) =>
@@ -308,6 +328,7 @@ async function refreshMenu() {
   try {
     const data = await call('getMenu');
     state.deal = data.deal || null;
+    renderLine(data.queue);
     applyMenu(data.items);
   } catch (e) { /* keep what we have */ }
 }
@@ -581,6 +602,40 @@ function stopTracking() {
 }
 
 // phones pause background tabs: catch up as soon as the page is visible again
+/* ---- the line before ordering: "3 orders ahead of you if you order now" ---- */
+function renderLine(n) {
+  const known = typeof n === 'number';
+  $('lineNow').hidden = !known;
+  $('lineHint').hidden = !known;
+  if (!known) return;
+  $('lineNum').textContent = n;
+  $('lineText').textContent = n === 0 ? "No line, you'd be next!"
+    : (n === 1 ? '1 order' : n + ' orders') + ' ahead of you if you order now';
+  $('lineHint').innerHTML = n === 0 ? "No line right now, you'd be <b>next</b>."
+    : `<b>${n} order${n === 1 ? '' : 's'}</b> ahead of you right now.`;
+}
+
+async function refreshLine() {
+  try {
+    const q = await call('getQueue');
+    if (q && q.open === false && !state.closed) {
+      // the kitchen just closed while they were browsing
+      state.closed = true;
+      $('order').hidden = true; $('bar').classList.remove('show');
+      $('closed').hidden = false;
+      $('status').classList.add('closed');
+      $('statusText').textContent = 'Closed right now';
+      return;
+    }
+    if (q) renderLine(q.queue);
+  } catch (e) { /* keep the last number */ }
+}
+
+// keep the number fresh while someone is choosing
+setInterval(() => {
+  if (!$('order').hidden && document.visibilityState === 'visible') refreshLine();
+}, 20000);
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (state.active) poll();
