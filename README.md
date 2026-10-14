@@ -10,6 +10,7 @@ site/            the website (goes on GitHub Pages)
   admin.html       kitchen page: compact order rows (Paid / Ready), Menu tab (sold out on/off)
   poster.html      printable QR-code poster with the menu
   config.js        ← paste your Google Apps Script link here
+  manifest.webmanifest, kitchen.webmanifest, icons/   home-screen app icons (customer + kitchen)
   brand.css, common.js, favicon.svg
 backend/         the Google side (copy into Apps Script)
   Code.gs          saves orders to Sheets, sends "ready" emails, builds the stats
@@ -46,7 +47,7 @@ After changing `Code.gs` later, publish it with **Deploy**, then **Manage deploy
 2. Under **Build and deployment**, choose **GitHub Actions**. The included workflow publishes the `site/` folder on every push.
 3. The site goes live at `https://<your-username>.github.io/ellies-deli/`:
    - Customers: that address
-   - Kitchen: `…/admin.html` (bookmark it on your phone)
+   - Kitchen: `…/admin.html` (add it to your home screen, see below)
    - Poster: `…/poster.html`
 
 ### Your own domain (optional, about $10–12 a year)
@@ -56,6 +57,15 @@ After changing `Code.gs` later, publish it with **Deploy**, then **Manage deploy
 1. Buy one (Porkbun, Namecheap or Cloudflare).
 2. In the repo, go to **Settings**, then **Pages**, then **Custom domain**, and enter it (for example `ellies-deli.com`).
 3. At the registrar, add the DNS records GitHub shows you, then tick **Enforce HTTPS**.
+
+### Home-screen app
+
+Both pages can be added to a phone's home screen. They open full screen, without the browser bar, with the Ellie's Deli logo as the icon.
+
+- **Customers**: on phones, the bottom of the ordering page shows **Put Ellie's Deli on your home screen**. On Android, **Add** installs it in one tap. On iPhone, it shows the steps: **Share**, then **Add to Home Screen**, then **Add**. The card disappears once it's installed. **×** hides it for 30 days, and an **Add to home screen** link stays in the footer.
+- **Kitchen**: open `admin.html` on your phone and add it to your home screen (iPhone: Share, then Add to Home Screen; Android: ⋮ menu, then Add to Home screen). It gets its own **Deli Kitchen** icon and opens straight to the kitchen page.
+- On iPhone, the home-screen app keeps its own storage, separate from Safari. An order placed in Safari is tracked in Safari, and one placed in the app is tracked in the app.
+- A home-screen app has no refresh button, so the pages refresh themselves: the "Kitchen's closed" page switches to the menu as soon as **Taking orders** is turned on.
 
 ## 3. QR poster
 
@@ -72,6 +82,7 @@ Tip: if the QR code points at your own domain, you can move the site later witho
   - **Past tab**: every earlier night, newest first, grouped by night with a count and total. Search, tick Paid/Ready or delete old and test orders there. (The date box at the top still jumps to one specific night; the **Tonight** button brings you back.)
   - **Done tab**: once an order is both Paid and Ready it moves from Orders to **Done**, so the Orders tab only shows what still needs doing. Untick a box in Done to send it back.
   - The **Unpaid** and **To make** filters, search, and the date picker let you look back at past nights.
+- **Saved cart**: the customer's cart, notes and payment choice are kept on their phone for 8 hours, so closing the tab or refreshing doesn't lose them. Anything that sold out in the meantime is dropped. It's cleared once the order goes through.
 - **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names and ingredients are edited in the **Menu** tab of the spreadsheet.
 - **Delete an order** (trash icon at the end of its row): for cancelled or test orders. It asks first, then removes the order from the spreadsheet for good. If the customer still has their order page open, it switches to "Order cancelled".
 - **Customers can cancel** from their order page until you tick **Ready** (or Paid). After that the button disappears and the backend refuses. Each order has a private cancel key, so nobody can cancel someone else's order. The kitchen page shows "Order #7 was cancelled by the customer" and drops it from the list.

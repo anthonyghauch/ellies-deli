@@ -2,18 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ellie's Deli · Order online</title>
 <meta name="description" content="Order grilled cheese & toasted sandwiches from Ellie's Deli. Pick up and pay by card or cash in the basement.">
 <meta name="theme-color" content="#0f7a5f">
 <meta property="og:title" content="Ellie's Deli">
 <meta property="og:description" content="Grilled cheese & toasted sandwiches. Order online, pick up in the basement.">
+<meta property="og:image" content="https://anthonyghauch.github.io/ellies-deli/icons/icon-512.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ellie's Deli">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="brand.css">
 <style>
-  .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
-  header.masthead { padding: 18px 0 20px; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
+  header.masthead { padding: calc(18px + env(safe-area-inset-top)) 0 20px; }
   .status {
     display: flex; width: fit-content; align-items: center; gap: 6px; margin: 14px auto 0;
     background: rgba(255,255,255,.14); border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 500;
@@ -140,6 +147,19 @@
   .steps li.on { color: var(--green); font-weight: 700; }
   .steps li.on::before, .steps li.on::after { background: var(--green); border-color: var(--green); }
   .steps li.now::before { box-shadow: 0 0 0 5px var(--green-soft); }
+  /* "add to home screen" card (phones only, gone once it's installed) */
+  .install { display: flex; align-items: center; gap: 12px; margin-top: 28px; padding: 12px 14px; border: 1.5px solid var(--green-line); border-radius: var(--radius); }
+  .install img { flex: none; width: 46px; height: 46px; border-radius: 11px; }
+  .install .txt { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); }
+  .install .txt b { display: block; color: var(--ink); font-size: 15px; }
+  .install .go { flex: none; height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--green); color: var(--white); font-weight: 700; cursor: pointer; }
+  .install .x { flex: none; width: 30px; height: 30px; margin-right: -6px; border: 0; background: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+  .install-steps { margin-top: 10px; padding: 14px 16px; background: var(--green-soft); border-radius: var(--radius); font-size: 14px; }
+  .install-steps p { margin: 0 0 8px; font-weight: 700; }
+  .install-steps ol { margin: 0; padding-left: 20px; }
+  .install-steps li + li { margin-top: 6px; }
+  .install-steps .ico { display: inline-block; width: 18px; height: 18px; vertical-align: -4px; color: #0a84ff; }
+  .foot-link { background: none; border: 0; padding: 4px; margin-top: 6px; color: var(--green); font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
   footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0 8px; }
   .plaque .charity { margin: 8px 0 0; color: var(--tan); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   @media (max-width: 380px) { .plaque .logo { font-size: 36px; } }
@@ -234,7 +254,19 @@
     <button class="ghost" id="again" type="button">Place another order</button>
   </div>
 
-  <footer>Ellie's Deli · All profits go to charity · Card or cash accepted</footer>
+  <div id="installWrap" hidden>
+    <div class="install">
+      <img src="icons/apple-touch-icon.png" alt="">
+      <div class="txt"><b>Put Ellie's Deli on your home screen</b>It opens like an app, nothing to download.</div>
+      <button type="button" class="go" id="installBtn">Add</button>
+      <button type="button" class="x" id="installX" aria-label="Hide">×</button>
+    </div>
+    <div class="install-steps" id="installSteps" hidden></div>
+  </div>
+
+  <footer>Ellie's Deli · All profits go to charity · Card or cash accepted
+    <div id="installLink" hidden><button type="button" class="foot-link" id="installShow">Add to home screen</button></div>
+  </footer>
 </main>
 
 <div class="bar" id="bar"><button type="button" id="barBtn"><span id="barCount"></span><span id="barTotal"></span></button></div>
@@ -293,7 +325,11 @@ async function init() {
   if (active) showConfirm(active);
   let data;
   try { data = await call('getMenu'); }
-  catch (e) { if (!active) $('loading').textContent = "Couldn't load the menu. Refresh to try again."; return; }
+  catch (e) {
+    // no reload button in a home-screen app, so offer one
+    if (!active) $('loading').innerHTML = `Couldn't load the menu.<br><button class="ghost" type="button" onclick="location.reload()">Try again</button>`;
+    return;
+  }
   $('loading').hidden = true;
   $('status').hidden = false;
   $('status').classList.toggle('closed', !data.open);
@@ -304,12 +340,14 @@ async function init() {
   state.maxQty = data.maxQty || 5;
   state.deal = data.deal || null;
   renderLine(data.queue);
-  applyMenu(data.items);
   $('maxNote').textContent = `Want more than ${state.maxQty} of the same thing? Please order in person.`;
   $('payments').innerHTML = data.paymentMethods.map((m, i) =>
     `<input type="radio" name="pay" id="pay${i}" value="${esc(m)}" ${i === 0 ? 'checked' : ''}><label for="pay${i}">${esc(m)}</label>`).join('');
-  $('name').value = store.get('ed_name');
-  $('email').value = store.get('ed_email');
+  const draft = loadCart();
+  if (draft) restoreCart(draft);
+  $('name').value = (draft && draft.name) || store.get('ed_name');
+  $('email').value = (draft && draft.email) || store.get('ed_email');
+  applyMenu(data.items);
   if (!active) $('order').hidden = false;
 }
 
@@ -426,7 +464,42 @@ function renderCart() {
   $('barCount').textContent = count + (count === 1 ? ' item · View order' : ' items · View order');
   $('barTotal').textContent = money(t.total);
   updateBar();
+  saveCart();
 }
+
+/* ---- keep the cart (and what they typed) if the page is closed or refreshed, for a few hours ---- */
+const CART_HOURS = 8;
+
+function saveCart() {
+  const notes = $('notes').value;
+  if (!Object.keys(state.cart).length && !notes.trim()) { store.del('ed_cart'); return; }
+  store.set('ed_cart', JSON.stringify({
+    at: Date.now(), cart: state.cart, notes, name: $('name').value, email: $('email').value,
+    pay: (document.querySelector('input[name=pay]:checked') || {}).value || '',
+  }));
+}
+
+function loadCart() {
+  try {
+    const d = JSON.parse(store.get('ed_cart') || 'null');
+    if (d && d.cart && Date.now() - d.at < CART_HOURS * 3600e3) return d;
+  } catch (e) {}
+  store.del('ed_cart');
+  return null;
+}
+
+function restoreCart(d) {
+  state.cart = {};
+  Object.keys(d.cart).forEach(n => {
+    const q = Math.min(Math.floor(Number(d.cart[n]) || 0), state.maxQty);
+    if (q > 0) state.cart[n] = q;
+  });
+  $('notes').value = d.notes || '';
+  const pay = [...document.querySelectorAll('input[name=pay]')].find(r => r.value === d.pay);
+  if (pay) pay.checked = true;
+}
+
+['input', 'change'].forEach(ev => $('checkout').addEventListener(ev, saveCart));
 
 function updateBar() {
   const hasItems = Object.keys(state.cart).length > 0 && !$('order').hidden;
@@ -457,6 +530,7 @@ $('checkout').addEventListener('submit', async (e) => {
     const res = await call('placeOrder', { items, name, email, notes: $('notes').value.trim(), payment, requestId: state.requestId });
     state.requestId = null;
     store.set('ed_name', name); store.set('ed_email', email);
+    state.cart = {}; $('notes').value = ''; store.del('ed_cart');
     res.at = Date.now();
     store.set('ed_active', JSON.stringify(res));
     showConfirm(res);
@@ -475,7 +549,7 @@ $('again').addEventListener('click', () => {
   $('notes').value = '';
   $('confirm').hidden = true;
   if (state.closed) { $('closed').hidden = false; }
-  else if (state.items.length) { $('order').hidden = false; refreshMenu(); }
+  else if (state.items.length) { $('order').hidden = false; renderMenu(); renderCart(); refreshMenu(); }
   else { window.location.reload(); return; }
   window.scrollTo(0, 0);
 });
@@ -601,7 +675,6 @@ function stopTracking() {
   document.title = TITLE;
 }
 
-// phones pause background tabs: catch up as soon as the page is visible again
 /* ---- the line before ordering: "3 orders ahead of you if you order now" ---- */
 function renderLine(n) {
   const known = typeof n === 'number';
@@ -631,16 +704,93 @@ async function refreshLine() {
   } catch (e) { /* keep the last number */ }
 }
 
+/** On the "Kitchen's closed" page: reload as soon as the kitchen opens. */
+async function checkReopen() {
+  try {
+    const q = await call('getQueue');
+    if (q && q.open && state.closed && !state.active) window.location.reload();
+  } catch (e) {}
+}
+
 // keep the number fresh while someone is choosing
 setInterval(() => {
-  if (!$('order').hidden && document.visibilityState === 'visible') refreshLine();
+  if (document.visibilityState !== 'visible') return;
+  if (!$('order').hidden) refreshLine();
+  else if (state.closed && !state.active) checkReopen();
 }, 20000);
 
+// phones pause background tabs: catch up as soon as the page is visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (state.active) poll();
   else if (!$('order').hidden) refreshMenu();
+  else if (state.closed) checkReopen();
 });
+
+/* ---- "Add to home screen": Android gets the browser's install prompt, iPhone gets the steps ---- */
+const APP = (() => {
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  return {
+    ios, android, prompt: null,
+    installed: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+    // Instagram, GroupMe & co. open links in their own browser, which can't add to the home screen
+    inApp: /FBAN|FBAV|Instagram|GroupMe|Snapchat|LinkedInApp|Line\//.test(ua) || (ios && !/Safari\//.test(ua)) || (android && /; wv\)/.test(ua)),
+  };
+})();
+const SHARE_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16"/></svg>';
+
+function installSteps() {
+  if (APP.inApp) return `<p>Open this page in ${APP.ios ? 'Safari' : 'Chrome'} first</p>
+    This app's built-in browser can't add it. Tap the <b>⋯</b> menu, choose <b>Open in ${APP.ios ? 'Safari' : 'browser'}</b>, then tap <b>Add</b> again.`;
+  if (APP.ios) return `<p>On iPhone</p><ol>
+    <li>Tap the <b>Share</b> button ${SHARE_ICON}. In Safari it's at the bottom of the screen (or under <b>⋯</b>).</li>
+    <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+    <li>Tap <b>Add</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
+  return `<p>On Android</p><ol>
+    <li>Tap the browser menu <b>⋮</b> (top right).</li>
+    <li>Tap <b>Add to Home screen</b> or <b>Install app</b>.</li>
+    <li>Tap <b>Install</b>. Ellie's Deli shows up next to your apps.</li></ol>`;
+}
+
+function initInstall() {
+  if (APP.installed || !(APP.ios || APP.android)) return;
+  const dismissed = Date.now() - (Number(store.get('ed_install_x')) || 0) < 30 * 86400e3;
+  $('installWrap').hidden = dismissed;
+  $('installLink').hidden = !dismissed;
+}
+
+function hideInstall() { $('installWrap').hidden = true; $('installLink').hidden = true; }
+
+// Chrome on Android: keep its install prompt for our own "Add" button instead of its banner
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); APP.prompt = e; });
+window.addEventListener('appinstalled', hideInstall);
+
+$('installBtn').addEventListener('click', async () => {
+  if (APP.prompt) {
+    const p = APP.prompt;
+    APP.prompt = null;
+    p.prompt();
+    try { if ((await p.userChoice).outcome === 'accepted') hideInstall(); } catch (e) {}
+    return;
+  }
+  $('installSteps').innerHTML = installSteps();
+  $('installSteps').hidden = !$('installSteps').hidden;
+});
+$('installX').addEventListener('click', () => {
+  store.set('ed_install_x', String(Date.now()));
+  $('installWrap').hidden = true;
+  $('installSteps').hidden = true;
+  $('installLink').hidden = false;
+});
+$('installShow').addEventListener('click', () => {
+  store.del('ed_install_x');
+  $('installLink').hidden = true;
+  $('installWrap').hidden = false;
+  $('installWrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+initInstall();
 
 // sound needs a tap first, so the "Place order" tap unlocks it
 function unlockAudio() {
