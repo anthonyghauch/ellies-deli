@@ -41,7 +41,9 @@
   .name { font-weight: 700; }
   .desc { color: var(--muted); font-size: 14px; }
   .price { color: var(--green); font-weight: 700; font-size: 15px; }
-  .soldout .name, .soldout .desc, .soldout .price { color: #9aa9a3; }
+  .nutri { color: var(--muted); font-size: 13px; }
+  .nutri-note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  .soldout .name, .soldout .desc, .soldout .nutri, .soldout .price { color: #9aa9a3; }
   .soldout .price { text-decoration: line-through; }
   .pill { flex: none; font-size: 13px; font-weight: 700; color: var(--muted); background: #eef1ef; border-radius: 999px; padding: 6px 12px; }
   .add {
@@ -274,13 +276,13 @@ window.DEMO = {
     deal: { on: true, name: 'Hungry Man', sandwiches: 2, drinks: 1, discount: 1 },
     queue: 3,
     items: [
-      ['The Classic', 1, 'Colby Jack'], ['The Porky', 2, 'Colby Jack, Bacon Bits'],
-      ['The Piggy', 2, 'Colby Jack, Pepperoni'], ['The Hammy', 2, 'Colby Jack, Ham'],
-      ['The Jack', 2, 'Pepper Jack, Pepperoni, Jalapeños'], ['The Deece', 3, 'Colby Jack, Havarti, Ham, Bacon Bits'],
-      ['The Frad', 3, 'Colby Jack, Pepper Jack, Ham, Bacon Bits, Jalapeños'],
-      ['The Kitchen Sink', 4, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños'],
-      ['The Nutellie', 1, 'Toasted Nutella'], ['The Duke', 2, 'Toasted Nutella, Bacon Bits'],
-    ].map(([name, price, description]) => ({ name, price, description, category: 'Sandwiches', available: name !== 'The Duke' }))
+      ['The Classic', 1, 'Colby Jack', 240, 9], ['The Porky', 2, 'Colby Jack, Bacon Bits', 300, 15],
+      ['The Piggy', 2, 'Colby Jack, Pepperoni', 330, 12], ['The Hammy', 2, 'Colby Jack, Ham', 270, 14],
+      ['The Jack', 2, 'Pepper Jack, Pepperoni, Jalapeños', 340, 12], ['The Deece', 3, 'Colby Jack, Havarti, Ham, Bacon Bits', 410, 24],
+      ['The Frad', 3, 'Colby Jack, Pepper Jack, Ham, Bacon Bits, Jalapeños', 420, 25],
+      ['The Kitchen Sink', 4, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños', 590, 32],
+      ['The Nutellie', 1, 'Toasted Nutella', 240, 5], ['The Duke', 2, 'Toasted Nutella, Bacon Bits', 300, 11],
+    ].map(([name, price, description, calories, protein]) => ({ name, price, description, calories, protein, category: 'Sandwiches', available: name !== 'The Duke' }))
       .concat([['Coke', 1], ['Coke Zero', 1], ['Diet Coke', 1], ['Sprite', 1],
         ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
         .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true })))
@@ -407,16 +409,27 @@ function dealHint(t) {
 function renderMenu() {
   const cats = [];
   state.items.forEach(i => { if (!cats.includes(i.category)) cats.push(i.category); });
-  $('menu').innerHTML = cats.map(c => `<h2>${esc(c)}</h2>` + state.items
-    .filter(i => i.category === c)
+  $('menu').innerHTML = cats.map(c => {
+    const list = state.items.filter(i => i.category === c);
+    return `<h2>${esc(c)}</h2>` + list
     .map(i => `<div class="item${state.available[i.name] ? '' : ' soldout'}">
         <div class="info">
           <div class="name">${esc(i.name)}</div>
           ${i.description ? `<div class="desc">${esc(i.description)}</div>` : ''}
+          ${nutrition(i) ? `<div class="nutri">${esc(nutrition(i))}</div>` : ''}
           <div class="price">${money(i.price)}</div>
         </div>
         <div data-ctl="${esc(i.name)}">${controlHtml(i.name)}</div>
-      </div>`).join('')).join('');
+      </div>`).join('') + (list.some(nutrition) ? '<p class="nutri-note">Calories and protein are estimates.</p>' : '');
+  }).join('');
+}
+
+/** "~ 240 cal · 9g protein", or '' when the Menu tab has no numbers for this item. */
+function nutrition(i) {
+  const parts = [];
+  if (i.calories) parts.push(`~ ${i.calories} cal`);
+  if (i.protein) parts.push(`${i.protein}g protein`);
+  return parts.join(' · ');
 }
 
 function controlHtml(name) {

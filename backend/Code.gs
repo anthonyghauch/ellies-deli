@@ -34,29 +34,29 @@ const CONFIG = {
 const ORDER_HEADERS = ['Order ID', 'Placed at', 'Night', 'Name', 'Room', 'Email', 'Items',
   'Sandwiches', 'Total', 'Payment', 'Notes', 'Paid', 'Ready', 'Ready email sent', 'Discount'];
 const ITEM_HEADERS = ['Order ID', 'Night', 'Item', 'Category', 'Qty', 'Unit price', 'Line total'];
-const MENU_HEADERS = ['Item', 'Category', 'Price', 'Available', 'Description'];
+const MENU_HEADERS = ['Item', 'Category', 'Price', 'Available', 'Description', 'Calories', 'Protein'];
 const COL = { EMAIL: 6, PAID: 12, READY: 13, NOTIFIED: 14, DISCOUNT: 15 };
 const MENU_COL = { AVAILABLE: 4 };
 
 const SEED_MENU = [
-  ['The Classic', 'Sandwiches', 1, true, 'Colby Jack'],
-  ['The Porky', 'Sandwiches', 2, true, 'Colby Jack, Bacon Bits'],
-  ['The Piggy', 'Sandwiches', 2, true, 'Colby Jack, Pepperoni'],
-  ['The Hammy', 'Sandwiches', 2, true, 'Colby Jack, Ham'],
-  ['The Jack', 'Sandwiches', 2, true, 'Pepper Jack, Pepperoni, Jalapeños'],
-  ['The Deece', 'Sandwiches', 3, true, 'Colby Jack, Havarti, Ham, Bacon Bits'],
-  ['The Frad', 'Sandwiches', 3, true, 'Colby Jack, Pepper Jack, Ham, Bacon Bits, Jalapeños'],
-  ['The Kitchen Sink', 'Sandwiches', 4, true, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños'],
-  ['The Nutellie', 'Sandwiches', 1, true, 'Toasted Nutella'],
-  ['The Duke', 'Sandwiches', 2, true, 'Toasted Nutella, Bacon Bits'],
-  ['Coke', 'Drinks', 1, true, ''],
-  ['Coke Zero', 'Drinks', 1, true, ''],
-  ['Diet Coke', 'Drinks', 1, true, ''],
-  ['Sprite', 'Drinks', 1, true, ''],
-  ['Arnold Palmer / Arizona Iced Tea', 'Drinks', 1, true, ''],
-  ['Gatorade', 'Drinks', 1, true, ''],
-  ['Celsius', 'Drinks', 2, true, ''],
-  ['Ice Cream', 'Dessert', 2, true, ''],
+  ['The Classic', 'Sandwiches', 1, true, 'Colby Jack', 240, 9],
+  ['The Porky', 'Sandwiches', 2, true, 'Colby Jack, Bacon Bits', 300, 15],
+  ['The Piggy', 'Sandwiches', 2, true, 'Colby Jack, Pepperoni', 330, 12],
+  ['The Hammy', 'Sandwiches', 2, true, 'Colby Jack, Ham', 270, 14],
+  ['The Jack', 'Sandwiches', 2, true, 'Pepper Jack, Pepperoni, Jalapeños', 340, 12],
+  ['The Deece', 'Sandwiches', 3, true, 'Colby Jack, Havarti, Ham, Bacon Bits', 410, 24],
+  ['The Frad', 'Sandwiches', 3, true, 'Colby Jack, Pepper Jack, Ham, Bacon Bits, Jalapeños', 420, 25],
+  ['The Kitchen Sink', 'Sandwiches', 4, true, 'Colby Jack, Pepper Jack, Havarti, Bacon Bits, Pepperoni, Ham, Jalapeños', 590, 32],
+  ['The Nutellie', 'Sandwiches', 1, true, 'Toasted Nutella', 240, 5],
+  ['The Duke', 'Sandwiches', 2, true, 'Toasted Nutella, Bacon Bits', 300, 11],
+  ['Coke', 'Drinks', 1, true, '', '', ''],
+  ['Coke Zero', 'Drinks', 1, true, '', '', ''],
+  ['Diet Coke', 'Drinks', 1, true, '', '', ''],
+  ['Sprite', 'Drinks', 1, true, '', '', ''],
+  ['Arnold Palmer / Arizona Iced Tea', 'Drinks', 1, true, '', '', ''],
+  ['Gatorade', 'Drinks', 1, true, '', '', ''],
+  ['Celsius', 'Drinks', 2, true, '', '', ''],
+  ['Ice Cream', 'Dessert', 2, true, '', '', ''],
 ];
 
 /* --------------------------------------------------------------------- API */
@@ -114,6 +114,7 @@ function getMenu() {
     open: isOpen_(),
     items: readMenu_().map(m => ({
       name: m.name, category: m.category, price: m.price, description: m.description, available: m.available,
+      calories: m.calories, protein: m.protein,
     })),
     paymentMethods: CONFIG.PAYMENT_METHODS,
     paymentNote: CONFIG.PAYMENT_NOTE,
@@ -520,9 +521,10 @@ function buildSheets_(ss) {
   menu.getRange('C:C').setNumberFormat('$0.00');
   menu.setColumnWidth(1, 220);
   menu.setColumnWidth(5, 420);
-  menu.getRange('G1').setValue('Tip: items whose Category starts with "Sandwich" count as sandwiches; ' +
+  menu.getRange('I1').setValue('Tip: items whose Category starts with "Sandwich" count as sandwiches; ' +
     '"Drink" or "Dessert" items count toward the Hungry Man deal. ' +
-    'Uncheck Available (or use the admin page) to mark an item sold out.')
+    'Uncheck Available (or use the admin page) to mark an item sold out. ' +
+    'Calories and Protein show under the item on the ordering page; leave them blank to show nothing.')
     .setFontStyle('italic').setFontColor('#56706a');
 
   buildDashboard_(dash);
@@ -610,6 +612,8 @@ function readMenu_() {
       price: round2_(Number(r[2]) || 0),
       available: r[3] === true,
       description: String(r[4] || '').trim(),
+      calories: Number(r[5]) || 0,
+      protein: Number(r[6]) || 0,
     }));
 }
 

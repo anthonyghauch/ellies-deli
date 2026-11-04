@@ -83,7 +83,7 @@ Tip: if the QR code points at your own domain, you can move the site later witho
   - **Done tab**: once an order is both Paid and Ready it moves from Orders to **Done**, so the Orders tab only shows what still needs doing. Untick a box in Done to send it back.
   - The **Unpaid** and **To make** filters, search, and the date picker let you look back at past nights.
 - **Saved cart**: the customer's cart, notes and payment choice are kept on their phone for 8 hours, so closing the tab or refreshing doesn't lose them. Anything that sold out in the meantime is dropped. It's cleared once the order goes through.
-- **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names and ingredients are edited in the **Menu** tab of the spreadsheet.
+- **Menu tab**: switch any item to **Sold out**. Customers see it greyed out straight away and can't order it. Prices, names, ingredients, calories and protein are edited in the **Menu** tab of the spreadsheet.
 - **Delete an order** (trash icon at the end of its row): for cancelled or test orders. It asks first, then removes the order from the spreadsheet for good. If the customer still has their order page open, it switches to "Order cancelled".
 - **Customers can cancel** from their order page until you tick **Ready** (or Paid). After that the button disappears and the backend refuses. Each order has a private cancel key, so nobody can cancel someone else's order. The kitchen page shows "Order #7 was cancelled by the customer" and drops it from the list.
 - **Place in line**: while an order waits, the customer's page shows "3 orders ahead of you", then "You're next!". It counts tonight's earlier orders that aren't Ready yet, so ticking **Ready** moves the line forward for everyone.
@@ -94,7 +94,9 @@ Tip: if the QR code points at your own domain, you can move the site later witho
 - **Dashboard**: total revenue, collected vs. still owed, orders, sandwiches sold, average order, best seller, a by-night table, most popular items, and charts.
 - **Orders**: one row per order: night, time, name, email, items, total, payment, notes, Paid, Ready, when the ready email went out, and the deal discount. (The Room column is only filled for older orders; the form no longer asks for it.)
 - **Order Items**: one row per item, which feeds the popularity stats.
-- **Menu**: items, category, price, Available, ingredients.
+- **Menu**: items, category, price, Available, ingredients, calories, protein. An item with blank Calories and Protein shows no numbers (drinks and ice cream are blank on purpose).
+
+The sandwich calories and protein are estimates, rounded to the nearest 10 calories. Each one adds up: 2 slices of bread (60 cal, 2g each), about 1 teaspoon of oil (40 cal), 1 slice of each listed cheese (Colby Jack or Pepper Jack 80 cal, 5g; Havarti 80 cal, 4g), 1 slice of ham (30 cal, 5g), 9 pepperoni (90 cal, 3g), about 2 tablespoons of bacon bits (60 cal, 6g), a big teaspoon of Nutella (80 cal, 1g), and jalapeños (5 cal). If a recipe changes, update its numbers in the Menu tab; the poster's numbers are in `site/poster.html`.
 
 Orders placed after midnight, up to 6am, count toward the previous night (`NIGHT_CUTOFF_HOUR`). To keep the sheet in a Drive folder you already have, put that folder's ID in `FOLDER_ID` in `Code.gs` before running `setup`.
 
