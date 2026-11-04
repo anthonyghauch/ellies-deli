@@ -283,7 +283,8 @@ window.DEMO = {
     ].map(([name, price, description]) => ({ name, price, description, category: 'Sandwiches', available: name !== 'The Duke' }))
       .concat([['Coke', 1], ['Coke Zero', 1], ['Diet Coke', 1], ['Sprite', 1],
         ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]]
-        .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true }))),
+        .map(([name, price]) => ({ name, price, description: '', category: 'Drinks', available: true })))
+      .concat([{ name: 'Ice Cream', price: 2, description: '', category: 'Dessert', available: true }]),
   }),
   getQueue: async () => ({ open: true, queue: 3 }),
   placeOrder: async (o) => {
@@ -363,7 +364,7 @@ async function refreshMenu() {
   } catch (e) { /* keep what we have */ }
 }
 
-/* ---- Hungry Man deal: every 2 sandwiches + 1 drink = $1 off, stacking (the server has the final say) ---- */
+/* ---- Hungry Man deal: every 2 sandwiches + 1 drink or dessert = $1 off, stacking (the server has the final say) ---- */
 function dealOn() { return !!(state.deal && state.deal.on); }
 
 function renderDeal() {
@@ -372,29 +373,29 @@ function renderDeal() {
   const d = state.deal;
   $('dealBadge').innerHTML = `${esc(money(d.discount).replace('.00', ''))}<small>OFF</small>`;
   $('dealTitle').textContent = d.name + ' deal';
-  $('dealText').innerHTML = `Every <b>${d.sandwiches} sandwiches + ${d.drinks === 1 ? 'a drink' : d.drinks + ' drinks'}</b> = ` +
-    `<b>${esc(money(d.discount).replace('.00', ''))} off</b>. It stacks: ${d.sandwiches * 2} sandwiches + ${d.drinks * 2} drinks saves ${esc(money(d.discount * 2).replace('.00', ''))}.`;
+  $('dealText').innerHTML = `Every <b>${d.sandwiches} sandwiches + ${d.drinks === 1 ? 'a drink or ice cream' : d.drinks + ' drinks or ice creams'}</b> = ` +
+    `<b>${esc(money(d.discount).replace('.00', ''))} off</b>. It stacks: ${d.sandwiches * 2} sandwiches + ${d.drinks * 2} drinks or ice creams saves ${esc(money(d.discount * 2).replace('.00', ''))}.`;
 }
 
 function cartTotals(lines) {
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
   const count = (re) => lines.filter(l => re.test(state.cats[l.name] || '')).reduce((s, l) => s + l.qty, 0);
-  const sandwiches = count(/^sandwich/i), drinks = count(/^drink/i);
+  const sandwiches = count(/^sandwich/i), sides = count(/^(drink|dessert)/i);
   let deals = 0;
-  if (dealOn()) deals = Math.min(Math.floor(sandwiches / state.deal.sandwiches), Math.floor(drinks / state.deal.drinks));
+  if (dealOn()) deals = Math.min(Math.floor(sandwiches / state.deal.sandwiches), Math.floor(sides / state.deal.drinks));
   const discount = dealOn() ? deals * state.deal.discount : 0;
-  return { subtotal, discount, total: subtotal - discount, deals, sandwiches, drinks };
+  return { subtotal, discount, total: subtotal - discount, deals, sandwiches, sides };
 }
 
-/** "Add a drink to save $1" style nudge, or '' when the cart is already balanced. */
+/** "Add a drink or ice cream to save $1" style nudge, or '' when the cart is already balanced. */
 function dealHint(t) {
-  if (!dealOn() || !(t.sandwiches + t.drinks)) return '';
+  if (!dealOn() || !(t.sandwiches + t.sides)) return '';
   const d = state.deal;
-  const k = Math.floor(t.sandwiches / d.sandwiches), m = Math.floor(t.drinks / d.drinks);
+  const k = Math.floor(t.sandwiches / d.sandwiches), m = Math.floor(t.sides / d.drinks);
   const save = (t.deals ? 'another ' : '') + money(d.discount).replace('.00', '');
   if (k > m) {
-    const need = d.drinks - (t.drinks % d.drinks);
-    return `Add ${need === 1 ? 'a drink' : need + ' drinks'} to save ${save} with the ${d.name} deal.`;
+    const need = d.drinks - (t.sides % d.drinks);
+    return `Add ${need === 1 ? 'a drink or ice cream' : need + ' drinks or ice creams'} to save ${save} with the ${d.name} deal.`;
   }
   if (m > k) {
     const need = d.sandwiches - (t.sandwiches % d.sandwiches);

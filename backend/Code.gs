@@ -23,7 +23,7 @@ const CONFIG = {
   MAX_QTY_PER_ITEM: 5,               // more than 5 of the same item = order in person
   READY_EMAIL: true,                 // email the customer when you tick Ready
   READY_MESSAGE: 'Come down to the basement to pick it up.',
-  // Hungry Man deal: every 2 sandwiches + 1 drink takes $1 off, and it stacks.
+  // Hungry Man deal: every 2 sandwiches + 1 drink or dessert takes $1 off, and it stacks.
   // Admins switch it on/off from the Menu tab of the kitchen page.
   DEAL_NAME: 'Hungry Man',
   DEAL_SANDWICHES: 2,
@@ -56,6 +56,7 @@ const SEED_MENU = [
   ['Arnold Palmer / Arizona Iced Tea', 'Drinks', 1, true, ''],
   ['Gatorade', 'Drinks', 1, true, ''],
   ['Celsius', 'Drinks', 2, true, ''],
+  ['Ice Cream', 'Dessert', 2, true, ''],
 ];
 
 /* --------------------------------------------------------------------- API */
@@ -163,8 +164,8 @@ function placeOrder(order) {
 
   const subtotal = round2_(lines.reduce((s, l) => s + l.qty * l.price, 0));
   const sandwiches = lines.filter(l => isSandwich_(l.category)).reduce((s, l) => s + l.qty, 0);
-  const drinks = lines.filter(l => isDrink_(l.category)).reduce((s, l) => s + l.qty, 0);
-  const deal = dealFor_(sandwiches, drinks);
+  const sides = lines.filter(l => isDealSide_(l.category)).reduce((s, l) => s + l.qty, 0);
+  const deal = dealFor_(sandwiches, sides);
   const total = round2_(subtotal - deal.discount);
   let itemsText = lines.map(l => l.qty + '× ' + l.name).join(', ');
   if (deal.count) itemsText += ' · ' + CONFIG.DEAL_NAME + ' ×' + deal.count + ' (−' + money_(deal.discount) + ')';
@@ -519,7 +520,8 @@ function buildSheets_(ss) {
   menu.getRange('C:C').setNumberFormat('$0.00');
   menu.setColumnWidth(1, 220);
   menu.setColumnWidth(5, 420);
-  menu.getRange('G1').setValue('Tip: items whose Category starts with "Sandwich" count as sandwiches. ' +
+  menu.getRange('G1').setValue('Tip: items whose Category starts with "Sandwich" count as sandwiches; ' +
+    '"Drink" or "Dessert" items count toward the Hungry Man deal. ' +
     'Uncheck Available (or use the admin page) to mark an item sold out.')
     .setFontStyle('italic').setFontColor('#56706a');
 
@@ -679,8 +681,9 @@ function isSandwich_(category) {
   return /^sandwich/i.test(String(category));
 }
 
-function isDrink_(category) {
-  return /^drink/i.test(String(category));
+/** Drinks and desserts both count as the deal's third item. */
+function isDealSide_(category) {
+  return /^(drink|dessert)/i.test(String(category));
 }
 
 /** The deal is on unless an admin switched it off. */
@@ -693,10 +696,10 @@ function dealInfo_() {
     drinks: CONFIG.DEAL_DRINKS, discount: CONFIG.DEAL_DISCOUNT };
 }
 
-/** How many deals an order earns: every 2 sandwiches + 1 drink, stacking. */
-function dealFor_(sandwiches, drinks) {
+/** How many deals an order earns: every 2 sandwiches + 1 drink or dessert, stacking. */
+function dealFor_(sandwiches, sides) {
   if (!isDealOn_()) return { count: 0, discount: 0 };
-  const count = Math.max(0, Math.min(Math.floor(sandwiches / CONFIG.DEAL_SANDWICHES), Math.floor(drinks / CONFIG.DEAL_DRINKS)));
+  const count = Math.max(0, Math.min(Math.floor(sandwiches / CONFIG.DEAL_SANDWICHES), Math.floor(sides / CONFIG.DEAL_DRINKS)));
   return { count: count, discount: round2_(count * CONFIG.DEAL_DISCOUNT) };
 }
 

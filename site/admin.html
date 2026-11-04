@@ -281,8 +281,9 @@ window.DEMO = (() => {
   const names = ['Liam O.', 'Grace K.', 'Matt D.', 'Sofia R.', 'Jack M.', 'Ava P.', 'Ben T.', 'Chloe W.', 'Noah S.', 'Ella H.', 'Ryan B.', 'Mia L.'];
   const menu = [['The Classic', 1], ['The Porky', 2], ['The Piggy', 2], ['The Hammy', 2], ['The Jack', 2], ['The Deece', 3], ['The Frad', 3], ['The Kitchen Sink', 4], ['The Nutellie', 1], ['The Duke', 2]];
   const drinks = [['Coke', 1], ['Coke Zero', 1], ['Diet Coke', 1], ['Sprite', 1], ['Arnold Palmer / Arizona Iced Tea', 1], ['Gatorade', 1], ['Celsius', 2]];
+  const desserts = [['Ice Cream', 2]];
   const avail = {};
-  menu.concat(drinks).forEach(([n]) => { avail[n] = n !== 'The Duke'; });
+  menu.concat(drinks, desserts).forEach(([n]) => { avail[n] = n !== 'The Duke'; });
   const notes = ['', '', 'no cheese', '', 'cut in half', '', '', 'picking up at 11:30', ''];
   const orders = names.map((n, i) => {
     const picks = [menu[i % 10], menu[(i * 3 + 1) % 10]];
@@ -320,7 +321,8 @@ window.DEMO = (() => {
       return true;
     },
     getAdminMenu: async () => menu.map(([name, price]) => ({ name, price, category: 'Sandwiches', available: avail[name] }))
-      .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] }))),
+      .concat(drinks.map(([name, price]) => ({ name, price, category: 'Drinks', available: avail[name] })))
+      .concat(desserts.map(([name, price]) => ({ name, price, category: 'Dessert', available: avail[name] }))),
     setItemAvailable: async (pin, name, v) => (avail[name] = v),
     getDeal: async () => ({ ...deal }),
     setDeal: async (pin, on) => { deal.on = on; return { ...deal }; },
@@ -631,7 +633,7 @@ function renderDeal(deal) {
   if (!deal) return;
   S.deal = deal;
   $('dealName').textContent = deal.name + ' deal';
-  $('dealDesc').textContent = `Every ${deal.sandwiches} sandwiches + ${deal.drinks === 1 ? '1 drink' : deal.drinks + ' drinks'} = ` +
+  $('dealDesc').textContent = `Every ${deal.sandwiches} sandwiches + ${deal.drinks === 1 ? '1 drink or ice cream' : deal.drinks + ' drinks or ice creams'} = ` +
     `${money(deal.discount).replace('.00', '')} off. Stacks.`;
   $('dealToggle').checked = deal.on;
   $('dealLbl').textContent = deal.on ? 'On' : 'Off';
