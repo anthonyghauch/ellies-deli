@@ -76,7 +76,9 @@
   .num { font-weight: 700; color: var(--green); font-size: 15px; }
   .time, .pay { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .items { font-weight: 500; }
+  .items { font-weight: 400; }
+  .items b { font-weight: 800; color: var(--ink); }
+  .items .deal-tag { color: var(--muted); font-size: 13px; }
   .notes { color: var(--warn); font-size: 13px; }
   .amt { font-weight: 700; text-align: right; white-space: nowrap; }
   .c { display: flex; justify-content: center; }
@@ -355,6 +357,7 @@ async function login(pin) {
   $('menuView').appendChild($('installBox'));
   syncHeadOffset();
   call('getSheetUrl', pin).then(url => { $('sheetLink').href = url; }).catch(() => {});
+  loadCats();
   await load();
   S.timer = setInterval(() => { if (S.view === 'orders' || S.view === 'done') load(); }, 15000);
 }
@@ -473,7 +476,7 @@ function rowHtml(o, fresh) {
       <span class="num">#${o.number}</span>
       <span class="time">${esc(o.time)}</span>
       <span class="who" title="${esc(o.name)} · ${esc(o.email)}">${esc(o.name)}</span>
-      <span class="items">${esc(o.items)}</span>
+      <span class="items">${itemsHtml(o.items)}</span>
       <span class="notes">${esc(o.notes)}</span>
       <span class="amt">${money(o.total)}</span>
       <span class="pay">${esc(o.payment)}</span>
@@ -483,6 +486,30 @@ function rowHtml(o, fresh) {
         <button type="button" class="del" data-del="${esc(o.id)}" title="Delete order" aria-label="Delete order ${o.number}">${TRASH}</button>
       </span>
     </div>`;
+}
+
+/* ---- items: sandwiches first and in bold, so the cook sees them at a glance ---- */
+S.cats = {};  // item name -> category, from the Menu sheet
+
+function setCats(menu) {
+  S.cats = {};
+  menu.forEach(i => { S.cats[i.name] = i.category; });
+}
+
+function loadCats() {
+  call('getAdminMenu', S.pin).then(menu => { setCats(menu); render(); }).catch(() => {});
+}
+
+// until the menu has loaded, every sandwich name starts with "The"
+const isSandwich = (name) => S.cats[name] ? /^sandwich/i.test(S.cats[name]) : /^The /.test(name);
+
+/** "1× Coke, 2× The Hammy · Hungry Man ×1 (−$1.00)" -> "<b>2× The Hammy</b>, 1× Coke · Hungry Man…" */
+function itemsHtml(text) {
+  const [list, ...extra] = String(text || '').split(' · ');
+  const parts = list.split(', ').filter(Boolean).map(p => ({ p, name: (p.match(/^\d+× (.+)$/) || [, p])[1] }));
+  const first = parts.filter(x => isSandwich(x.name)).map(x => `<b>${esc(x.p)}</b>`);
+  const rest = parts.filter(x => !isSandwich(x.name)).map(x => esc(x.p));
+  return first.concat(rest).join(', ') + extra.map(e => ` <span class="deal-tag">· ${esc(e)}</span>`).join('');
 }
 
 const findOrder = (id) => S.orders.find(x => x.id === id) || S.past.find(x => x.id === id);
@@ -619,6 +646,7 @@ async function loadMenu() {
   try {
     const [menu, deal] = await Promise.all([call('getAdminMenu', S.pin), call('getDeal', S.pin).catch(() => null)]);
     S.menu = menu;
+    setCats(menu);
     renderMenu();
     renderDeal(deal);
     $('errBar').hidden = true;
