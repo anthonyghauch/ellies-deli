@@ -420,16 +420,13 @@ function renderMenu() {
           <div class="price">${money(i.price)}</div>
         </div>
         <div data-ctl="${esc(i.name)}">${controlHtml(i.name)}</div>
-      </div>`).join('') + (list.some(nutrition) ? '<p class="nutri-note">Calories and protein are estimates.</p>' : '');
+      </div>`).join('') + (list.some(nutrition) ? '<p class="nutri-note">Protein amounts are estimates.</p>' : '');
   }).join('');
 }
 
-/** "~ 240 cal · 9g protein", or '' when the Menu tab has no numbers for this item. */
+/** "~ 9g protein", or '' when the Menu tab has no protein for this item. (Calories stay in the sheet but aren't shown.) */
 function nutrition(i) {
-  const parts = [];
-  if (i.calories) parts.push(`~ ${i.calories} cal`);
-  if (i.protein) parts.push(`${i.protein}g protein`);
-  return parts.join(' · ');
+  return i.protein ? `~ ${i.protein}g protein` : '';
 }
 
 function controlHtml(name) {

@@ -21,7 +21,7 @@ In its first 6 nights:
 ## What it does
 
 **For customers**
-- Menu with ingredients, calorie and protein estimates, and sold-out items greyed out
+- Menu with ingredients, protein estimates, and sold-out items greyed out
 - Cart that applies the Hungry Man combo deal automatically and suggests the item that unlocks it
 - How many orders are ahead before ordering, then a live place in line, a chime and an email when the order is ready
 - Self-service cancel until the kitchen marks the order ready
@@ -60,7 +60,7 @@ Since launch on October 11, 2026, most updates have come from things I noticed w
 - Done and Past tabs, so finished and old orders stop cluttering the night's list
 - A live "orders ahead of you" counter, before and after ordering
 - Customer self-cancel, sold-out switches, and the Hungry Man deal with its on/off switch
-- A home-screen app, a saved cart, ice cream, and calorie and protein estimates
+- A home-screen app, a saved cart, ice cream, and protein estimates
 
 ## Tech stack
 

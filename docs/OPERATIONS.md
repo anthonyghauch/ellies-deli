@@ -79,7 +79,7 @@ Tip: if the QR code points at your own domain, you can move the site later witho
 - **Dashboard**: total revenue, collected vs. still owed, orders, sandwiches sold, average order, best seller, a by-night table, most popular items, and charts.
 - **Orders**: one row per order: night, time, name, email, items, total, payment, notes, Paid, Ready, when the ready email went out, and the deal discount. (The Room column is only filled for older orders; the form no longer asks for it.)
 - **Order Items**: one row per item, which feeds the popularity stats.
-- **Menu**: items, category, price, Available, ingredients, calories, protein. An item with blank Calories and Protein shows no numbers (drinks and ice cream are blank on purpose).
+- **Menu**: items, category, price, Available, ingredients, calories, protein. The site shows only Protein (as "~ 9g protein"); Calories stays in the sheet but isn't displayed. An item with a blank Protein shows nothing (drinks and ice cream are blank on purpose).
 
 The sandwich calories and protein are estimates, rounded to the nearest 10 calories. Each one adds up: 2 slices of bread (60 cal, 2g each), about 1 teaspoon of oil (40 cal), 1 slice of each listed cheese (Colby Jack or Pepper Jack 80 cal, 5g; Havarti 80 cal, 4g), 1 slice of ham (30 cal, 5g), 9 pepperoni (90 cal, 3g), about 2 tablespoons of bacon bits (60 cal, 6g), a big teaspoon of Nutella (80 cal, 1g), and jalapeños (5 cal). If a recipe changes, update its numbers in the Menu tab; the poster's numbers are in `site/poster.html`.
 

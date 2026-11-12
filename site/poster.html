@@ -156,7 +156,7 @@ const MENU = [
 ];
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 document.getElementById('menu').innerHTML = MENU.map(([n, p, d, cal, pro]) =>
-  `<div class="it"><span><b>${esc(n)}</b><span class="n">~ ${cal} cal · ${pro}g protein</span></span><span class="p">$${p}</span><span class="d">${esc(d)}</span></div>`).join('');
+  `<div class="it"><span><b>${esc(n)}</b><span class="n">~ ${pro}g protein</span></span><span class="p">$${p}</span><span class="d">${esc(d)}</span></div>`).join('');
 
 const input = document.getElementById('url');
 if (new URLSearchParams(location.search).has('clean')) document.body.classList.add('clean');
